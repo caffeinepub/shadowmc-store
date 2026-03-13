@@ -1,0 +1,162 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/BricolageGrotesque.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Figtree";
+  src: url("/assets/fonts/Figtree.woff2") format("woff2");
+  font-weight: 300 900;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ShadowMC dark gaming theme */
+    --background: 12 0.02 250;
+    --foreground: 95 0.01 240;
+
+    --card: 15 0.025 250;
+    --card-foreground: 95 0.01 240;
+
+    --popover: 14 0.025 250;
+    --popover-foreground: 95 0.01 240;
+
+    /* Cyan/teal primary */
+    --primary: 78 0.18 195;
+    --primary-foreground: 10 0.02 250;
+
+    --secondary: 22 0.03 250;
+    --secondary-foreground: 80 0.05 240;
+
+    --muted: 20 0.025 250;
+    --muted-foreground: 60 0.04 240;
+
+    --accent: 75 0.16 195;
+    --accent-foreground: 10 0.02 250;
+
+    --destructive: 55 0.2 25;
+    --destructive-foreground: 98 0.01 0;
+
+    --border: 25 0.04 250;
+    --input: 22 0.03 250;
+    --ring: 78 0.18 195;
+
+    --radius: 0.5rem;
+
+    /* Rank colors */
+    --rank-vip: 72 0.2 145;
+    --rank-mvp: 60 0.22 250;
+    --rank-elite: 60 0.22 305;
+    --rank-legend: 78 0.22 70;
+
+    /* Glow */
+    --glow-cyan: 0 0 20px oklch(78% 0.18 195 / 0.6);
+    --glow-cyan-lg: 0 0 40px oklch(78% 0.18 195 / 0.4), 0 0 80px
+      oklch(78% 0.18 195 / 0.2);
+
+    --chart-1: 78 0.18 195;
+    --chart-2: 72 0.2 145;
+    --chart-3: 60 0.22 305;
+    --chart-4: 78 0.22 70;
+    --chart-5: 60 0.22 250;
+
+    --sidebar: 14 0.025 250;
+    --sidebar-foreground: 95 0.01 240;
+    --sidebar-primary: 78 0.18 195;
+    --sidebar-primary-foreground: 10 0.02 250;
+    --sidebar-accent: 22 0.03 250;
+    --sidebar-accent-foreground: 80 0.05 240;
+    --sidebar-border: 25 0.04 250;
+    --sidebar-ring: 78 0.18 195;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Figtree", sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  .font-pixel {
+    font-family: "Press Start 2P", monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .font-display {
+    font-family: "Bricolage Grotesque", sans-serif;
+  }
+
+  .glow-cyan {
+    box-shadow: var(--glow-cyan);
+  }
+
+  .glow-cyan-lg {
+    box-shadow: var(--glow-cyan-lg);
+  }
+
+  .text-glow-cyan {
+    text-shadow: 0 0 20px oklch(78% 0.18 195 / 0.8), 0 0 40px
+      oklch(78% 0.18 195 / 0.4);
+  }
+
+  .rank-vip-glow {
+    box-shadow: 0 0 20px oklch(72% 0.2 145 / 0.5);
+  }
+  .rank-mvp-glow {
+    box-shadow: 0 0 20px oklch(60% 0.22 250 / 0.5);
+  }
+  .rank-elite-glow {
+    box-shadow: 0 0 20px oklch(60% 0.22 305 / 0.5);
+  }
+  .rank-legend-glow {
+    box-shadow: 0 0 20px oklch(78% 0.22 70 / 0.5);
+  }
+
+  .card-glass {
+    background: oklch(15% 0.025 250 / 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .noise-bg {
+    position: relative;
+  }
+  .noise-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 0;
+  }
+
+  .grid-bg {
+    background-image: linear-gradient(
+        oklch(78% 0.18 195 / 0.04) 1px,
+        transparent 1px
+      ), linear-gradient(90deg, oklch(78% 0.18 195 / 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+}
