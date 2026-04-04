@@ -90,6 +90,24 @@ export const TransformationOutput = IDL.Record({
   'headers' : IDL.Vec(http_header),
 });
 
+// Manual order types
+export const ManualOrderItem = IDL.Record({
+  'name' : IDL.Text,
+  'quantity' : IDL.Nat,
+  'priceINR' : IDL.Nat,
+});
+export const ManualOrder = IDL.Record({
+  'id' : IDL.Nat,
+  'timestamp' : Time,
+  'username' : IDL.Text,
+  'email' : IDL.Text,
+  'items' : IDL.Vec(ManualOrderItem),
+  'totalINR' : IDL.Nat,
+  'paymentMethod' : IDL.Text,
+  'screenshotBase64' : IDL.Text,
+  'verified' : IDL.Bool,
+});
+
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addCoinBundle' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
@@ -103,6 +121,7 @@ export const idlService = IDL.Service({
   'getCallerPurchases' : IDL.Func([], [IDL.Vec(Purchase)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getManualOrders' : IDL.Func([], [IDL.Vec(ManualOrder)], ['query']),
   'getPurchases' : IDL.Func([], [IDL.Vec(Purchase)], ['query']),
   'getStore' : IDL.Func([], [StoreInfo], ['query']),
   'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
@@ -113,6 +132,7 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
+  'markManualOrderVerified' : IDL.Func([IDL.Nat], [IDL.Bool], []),
   'purchaseProduct' : IDL.Func(
       [IDL.Nat, ProductType, IDL.Nat, IDL.Text],
       [IDL.Text],
@@ -120,6 +140,11 @@ export const idlService = IDL.Service({
     ),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+  'submitManualOrder' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Vec(ManualOrderItem), IDL.Nat, IDL.Text, IDL.Text],
+      [IDL.Nat],
+      [],
+    ),
   'transform' : IDL.Func(
       [TransformationInput],
       [TransformationOutput],
@@ -205,7 +230,23 @@ export const idlFactory = ({ IDL }) => {
     'body' : IDL.Vec(IDL.Nat8),
     'headers' : IDL.Vec(http_header),
   });
-  
+  const ManualOrderItem = IDL.Record({
+    'name' : IDL.Text,
+    'quantity' : IDL.Nat,
+    'priceINR' : IDL.Nat,
+  });
+  const ManualOrder = IDL.Record({
+    'id' : IDL.Nat,
+    'timestamp' : Time,
+    'username' : IDL.Text,
+    'email' : IDL.Text,
+    'items' : IDL.Vec(ManualOrderItem),
+    'totalINR' : IDL.Nat,
+    'paymentMethod' : IDL.Text,
+    'screenshotBase64' : IDL.Text,
+    'verified' : IDL.Bool,
+  });
+
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'addCoinBundle' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
@@ -219,6 +260,7 @@ export const idlFactory = ({ IDL }) => {
     'getCallerPurchases' : IDL.Func([], [IDL.Vec(Purchase)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getManualOrders' : IDL.Func([], [IDL.Vec(ManualOrder)], ['query']),
     'getPurchases' : IDL.Func([], [IDL.Vec(Purchase)], ['query']),
     'getStore' : IDL.Func([], [StoreInfo], ['query']),
     'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
@@ -229,6 +271,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
+    'markManualOrderVerified' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'purchaseProduct' : IDL.Func(
         [IDL.Nat, ProductType, IDL.Nat, IDL.Text],
         [IDL.Text],
@@ -236,6 +279,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+    'submitManualOrder' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Vec(ManualOrderItem), IDL.Nat, IDL.Text, IDL.Text],
+        [IDL.Nat],
+        [],
+      ),
     'transform' : IDL.Func(
         [TransformationInput],
         [TransformationOutput],

@@ -20,34 +20,14 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createActorWithConfig } from "../config";
+import { createRawActorWithConfig } from "../config";
+import type { ManualOrder } from "../declarations/backend.did.d.ts";
 
 const ADMIN_PIN = "1313";
 const ADMIN_AUTH_KEY = "shadowmc_admin_auth";
 
-interface OrderItem {
-  name: string;
-  quantity: bigint;
-  priceINR: bigint;
-}
-
-interface Order {
-  id: bigint;
-  timestamp: bigint; // nanoseconds from Time.now()
-  username: string;
-  email: string;
-  items: OrderItem[];
-  totalINR: bigint;
-  paymentMethod: string;
-  screenshotBase64: string;
-  verified: boolean;
-}
-
-// Extended actor type to include manual order methods not yet in generated wrapper
-type ActorWithManualOrders = {
-  getManualOrders: () => Promise<Order[]>;
-  markManualOrderVerified: (orderId: bigint) => Promise<boolean>;
-};
+// Use canonical types from Candid declarations
+type Order = ManualOrder;
 
 function formatDate(ts: bigint): string {
   // ts is nanoseconds — convert to milliseconds
@@ -75,9 +55,8 @@ export default function AdminPanel() {
   const fetchOrders = useCallback(async () => {
     setIsLoading(true);
     try {
-      const anonActor = await createActorWithConfig();
-      const extActor = anonActor as unknown as ActorWithManualOrders;
-      const result = await extActor.getManualOrders();
+      const rawActor = await createRawActorWithConfig();
+      const result = await rawActor.getManualOrders();
       // Sort newest first by timestamp
       const sorted = [...result].sort(
         (a, b) => Number(b.timestamp) - Number(a.timestamp),
@@ -124,9 +103,8 @@ export default function AdminPanel() {
 
   const handleMarkVerified = async (order: Order) => {
     try {
-      const anonActor = await createActorWithConfig();
-      const extActor = anonActor as unknown as ActorWithManualOrders;
-      await extActor.markManualOrderVerified(order.id);
+      const rawActor = await createRawActorWithConfig();
+      await rawActor.markManualOrderVerified(order.id);
       // Refresh the list
       await fetchOrders();
     } catch (err) {

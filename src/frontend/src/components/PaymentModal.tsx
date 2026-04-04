@@ -18,12 +18,13 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { createActorWithConfig } from "../config";
+import { createRawActorWithConfig } from "../config";
 import { useCart } from "../context/CartContext";
 import { useUserInfo } from "../context/UserInfoContext";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCreateCheckoutSession } from "../hooks/useQueries";
+import { saveLocalOrder } from "../utils/localOrders";
 
 const UPI_ID = "8008366007@upi";
 const INR_PER_USD = 92;
@@ -112,18 +113,6 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   total: number;
 }
-
-// Extended actor type to include manual order methods not yet in generated wrapper
-type ActorWithManualOrders = {
-  submitManualOrder: (
-    username: string,
-    email: string,
-    items: Array<{ name: string; quantity: bigint; priceINR: bigint }>,
-    totalINR: bigint,
-    paymentMethod: string,
-    screenshotBase64: string,
-  ) => Promise<bigint>;
-};
 
 export default function PaymentModal({ open, onOpenChange, total }: Props) {
   const [step, setStep] = useState<Step>(1);
@@ -265,9 +254,8 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
       const submitOrder = async (screenshotBase64: string) => {
         try {
           // Use an anonymous actor since submitManualOrder is a public endpoint
-          const anonActor = await createActorWithConfig();
-          const extActor = anonActor as unknown as ActorWithManualOrders;
-          await extActor.submitManualOrder(
+          const rawActor = await createRawActorWithConfig();
+          await rawActor.submitManualOrder(
             username.trim(),
             email.trim(),
             backendItems,
@@ -278,6 +266,25 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
         } catch (err) {
           // silently ignore — order still shown as received to user
           console.warn("Failed to save order to backend:", err);
+        }
+        // Always save to localStorage so this player can see it in Purchase History
+        try {
+          saveLocalOrder({
+            id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            timestamp: Date.now(),
+            items: items.map((i) => ({
+              name: i.name,
+              quantity: i.quantity,
+              priceINR: i.inrPrice ?? Math.round(i.price * 92),
+            })),
+            totalINR: inrTotal,
+            paymentMethod: selectedMethod?.name ?? "UPI",
+            username: username.trim(),
+            email: email.trim(),
+            verified: false,
+          });
+        } catch {
+          // ignore
         }
       };
 

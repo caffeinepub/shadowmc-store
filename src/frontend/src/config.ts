@@ -4,8 +4,9 @@ import {
   type CreateActorOptions,
   ExternalBlob,
 } from "./backend";
+import { Actor, HttpAgent } from "@icp-sdk/core/agent";
+import { idlFactory, type _SERVICE } from "./declarations/backend.did";
 import { StorageClient } from "./utils/StorageClient";
-import { HttpAgent } from "@icp-sdk/core/agent";
 
 const DEFAULT_STORAGE_GATEWAY_URL = "https://blob.caffeine.ai";
 const DEFAULT_BUCKET_NAME = "default-bucket";
@@ -176,4 +177,21 @@ export async function createActorWithConfig(
     downloadFile,
     actorOptions,
   );
+}
+
+/**
+ * Creates a raw Candid actor that directly exposes ALL backend methods,
+ * including manual order endpoints (submitManualOrder, getManualOrders,
+ * markManualOrderVerified) that are not wrapped by the typed Backend class.
+ */
+export async function createRawActorWithConfig(): Promise<_SERVICE> {
+  const config = await loadConfig();
+  const agent = new HttpAgent({ host: config.backend_host });
+  if (config.backend_host?.includes("localhost")) {
+    await agent.fetchRootKey().catch(() => {});
+  }
+  return Actor.createActor<_SERVICE>(idlFactory, {
+    agent,
+    canisterId: config.backend_canister_id,
+  });
 }

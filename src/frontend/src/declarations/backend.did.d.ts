@@ -15,6 +15,22 @@ export interface CoinBundle {
   'coins' : bigint,
   'product' : Product,
 }
+export interface ManualOrderItem {
+  'name' : string,
+  'quantity' : bigint,
+  'priceINR' : bigint,
+}
+export interface ManualOrder {
+  'id' : bigint,
+  'timestamp' : Time,
+  'username' : string,
+  'email' : string,
+  'items' : Array<ManualOrderItem>,
+  'totalINR' : bigint,
+  'paymentMethod' : string,
+  'screenshotBase64' : string,
+  'verified' : boolean,
+}
 export interface Product {
   'id' : bigint,
   'name' : string,
@@ -86,18 +102,24 @@ export interface _SERVICE {
   'getCallerPurchases' : ActorMethod<[], Array<Purchase>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getManualOrders' : ActorMethod<[], Array<ManualOrder>>,
   'getPurchases' : ActorMethod<[], Array<Purchase>>,
   'getStore' : ActorMethod<[], StoreInfo>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isStripeConfigured' : ActorMethod<[], boolean>,
+  'markManualOrderVerified' : ActorMethod<[bigint], boolean>,
   'purchaseProduct' : ActorMethod<
     [bigint, ProductType, bigint, string],
     string
   >,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
+  'submitManualOrder' : ActorMethod<
+    [string, string, Array<ManualOrderItem>, bigint, string, string],
+    bigint
+  >,
   'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
 }
 export declare const idlService: IDL.ServiceClass;

@@ -192,7 +192,9 @@ export function InternetIdentityProvider({
       currentIdentity instanceof DelegationIdentity &&
       isDelegationValid(currentIdentity.getDelegation())
     ) {
-      setErrorMessage("User is already authenticated");
+      // User already has a valid session -- just surface it, do not error
+      setIdentity(currentIdentity);
+      setStatus("success");
       return;
     }
 
