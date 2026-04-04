@@ -1,8 +1,8 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Coins, Sparkles, TrendingUp } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
 import { useStoreInfo } from "../hooks/useQueries";
 
 const FALLBACK_BUNDLES = [
@@ -10,7 +10,8 @@ const FALLBACK_BUNDLES = [
     id: "coins-1",
     productId: 1n,
     coins: 500,
-    price: 1.99,
+    price: 0.59,
+    inrPrice: 49,
     label: null,
     bonus: null,
   },
@@ -18,31 +19,44 @@ const FALLBACK_BUNDLES = [
     id: "coins-2",
     productId: 2n,
     coins: 1000,
-    price: 3.49,
+    price: 1.07,
+    inrPrice: 89,
     label: null,
-    bonus: "+50 bonus",
+    bonus: "+100 bonus",
   },
   {
     id: "coins-3",
     productId: 3n,
     coins: 2500,
-    price: 7.99,
+    price: 2.39,
+    inrPrice: 199,
     label: "Most Popular",
-    bonus: "+250 bonus",
+    bonus: "+400 bonus",
   },
   {
     id: "coins-4",
     productId: 4n,
     coins: 5000,
-    price: 14.99,
+    price: 4.18,
+    inrPrice: 349,
     label: "Best Value",
-    bonus: "+750 bonus",
+    bonus: "+1,000 bonus",
+  },
+  {
+    id: "coins-5",
+    productId: 5n,
+    coins: 10000,
+    price: 7.17,
+    inrPrice: 599,
+    label: null,
+    bonus: "+2,500 bonus",
   },
 ];
 
 export default function CoinsSection() {
   const { addItem } = useCart();
   const { data: storeInfo } = useStoreInfo();
+  const { formatPriceWithINR } = useCurrency();
 
   const bundles = storeInfo?.coinBundles?.length
     ? storeInfo.coinBundles.map((b, i) => ({
@@ -60,7 +74,7 @@ export default function CoinsSection() {
       className="py-24 px-4"
       style={{ background: "oklch(11% 0.02 250)" }}
     >
-      <div className="container mx-auto max-w-5xl">
+      <div className="container mx-auto max-w-6xl">
         <motion.div
           className="text-center mb-16"
           initial={{ opacity: 0, y: 20 }}
@@ -83,7 +97,7 @@ export default function CoinsSection() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
           {bundles.map((bundle, index) => {
             const isPopular = bundle.label === "Most Popular";
             const isBestValue = bundle.label === "Best Value";
@@ -107,6 +121,7 @@ export default function CoinsSection() {
                     bg: "oklch(18% 0.03 250)",
                     glow: "none",
                   };
+
             return (
               <motion.div
                 key={bundle.id}
@@ -136,9 +151,8 @@ export default function CoinsSection() {
                   className="p-6 flex flex-col flex-1"
                   style={{ paddingTop: bundle.label ? "2.5rem" : "1.5rem" }}
                 >
-                  {/* Coin icon + amount */}
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="text-3xl animate-float">🪙</div>
+                    <div className="text-3xl">🪙</div>
                     <div>
                       <div
                         className="font-pixel text-lg"
@@ -165,11 +179,17 @@ export default function CoinsSection() {
                     </div>
                   )}
 
-                  {/* Price */}
                   <div className="mb-6 flex-1">
-                    <span className="font-display text-3xl font-bold text-foreground">
-                      ${bundle.price.toFixed(2)}
-                    </span>
+                    <motion.span
+                      key={formatPriceWithINR(bundle.price, bundle.inrPrice)}
+                      className="font-display text-3xl font-bold"
+                      style={{ color: "white" }}
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {formatPriceWithINR(bundle.price, bundle.inrPrice)}
+                    </motion.span>
                   </div>
 
                   <Button
@@ -191,6 +211,7 @@ export default function CoinsSection() {
                         id: bundle.id,
                         name: `${bundle.coins.toLocaleString()} Coins`,
                         price: bundle.price,
+                        inrPrice: bundle.inrPrice,
                         quantity: 1,
                         type: "coins",
                         productId: bundle.productId,

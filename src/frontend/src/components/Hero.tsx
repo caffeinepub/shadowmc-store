@@ -33,7 +33,7 @@ interface HeroProps {
 
 export default function Hero({ onNavigate }: HeroProps) {
   const [copied, setCopied] = useState(false);
-  const serverIp = "shadowmcnet.falix.gg";
+  const serverIp = "shadowmcgg.enderman.cloud";
 
   const copyIp = async () => {
     await navigator.clipboard.writeText(serverIp);

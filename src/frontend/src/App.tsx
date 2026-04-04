@@ -6,10 +6,13 @@ import CartDrawer from "./components/CartDrawer";
 import CoinsSection from "./components/CoinsSection";
 import Footer from "./components/Footer";
 import Hero from "./components/Hero";
+import LaunchBanner from "./components/LaunchBanner";
 import Navbar from "./components/Navbar";
+import PaymentSection from "./components/PaymentSection";
 import PurchaseHistory from "./components/PurchaseHistory";
 import RanksSection from "./components/RanksSection";
 import { CartProvider } from "./context/CartContext";
+import { CurrencyProvider } from "./context/CurrencyContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,8 +22,8 @@ const queryClient = new QueryClient({
 
 function StoreApp() {
   const [activeSection, setActiveSection] = useState("home");
+  const [bannerVisible, setBannerVisible] = useState(true);
 
-  // Handle checkout redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get("checkout");
@@ -37,7 +40,7 @@ function StoreApp() {
     setActiveSection(section);
     const el = document.getElementById(section);
     if (el) {
-      const offset = 80;
+      const offset = bannerVisible ? 120 : 80;
       const top = el.getBoundingClientRect().top + window.scrollY - offset;
       window.scrollTo({ top, behavior: "smooth" });
     } else if (section === "home") {
@@ -45,9 +48,8 @@ function StoreApp() {
     }
   };
 
-  // Track active section via scroll
   useEffect(() => {
-    const sections = ["home", "ranks", "coins", "history"];
+    const sections = ["home", "ranks", "coins", "payment", "history"];
     const handleScroll = () => {
       const scrollY = window.scrollY;
       if (scrollY < 200) {
@@ -69,15 +71,29 @@ function StoreApp() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const topOffset = bannerVisible ? "top-[96px]" : "top-16";
+
   return (
     <div className="min-h-screen bg-background">
-      <Navbar activeSection={activeSection} onNavigate={handleNavigate} />
-      <main>
+      <LaunchBanner
+        visible={bannerVisible}
+        onDismiss={() => setBannerVisible(false)}
+      />
+      <Navbar
+        activeSection={activeSection}
+        onNavigate={handleNavigate}
+        bannerVisible={bannerVisible}
+      />
+      <main
+        className={`pt-16 transition-all duration-300 ${topOffset}`}
+        style={{ paddingTop: 0, marginTop: bannerVisible ? "96px" : "64px" }}
+      >
         <div id="home">
           <Hero onNavigate={handleNavigate} />
         </div>
         <RanksSection />
         <CoinsSection />
+        <PaymentSection />
         <PurchaseHistory />
       </main>
       <Footer />
@@ -99,9 +115,11 @@ function StoreApp() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <CartProvider>
-        <StoreApp />
-      </CartProvider>
+      <CurrencyProvider>
+        <CartProvider>
+          <StoreApp />
+        </CartProvider>
+      </CurrencyProvider>
     </QueryClientProvider>
   );
 }

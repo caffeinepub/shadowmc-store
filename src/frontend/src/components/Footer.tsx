@@ -30,7 +30,7 @@ export default function Footer() {
                 className="font-mono"
                 style={{ color: "oklch(78% 0.18 195)" }}
               >
-                shadowmcnet.falix.gg
+                shadowmcgg.enderman.cloud
               </span>
             </p>
           </div>

@@ -21,7 +21,11 @@ export default function PurchaseHistory() {
 
   if (!isLoggedIn) {
     return (
-      <section id="history" className="py-24 px-4">
+      <section
+        id="history"
+        className="py-24 px-4"
+        style={{ background: "oklch(12% 0.02 250)" }}
+      >
         <div className="container mx-auto max-w-3xl">
           <div className="text-center">
             <h2
@@ -66,7 +70,11 @@ export default function PurchaseHistory() {
   }
 
   return (
-    <section id="history" className="py-24 px-4">
+    <section
+      id="history"
+      className="py-24 px-4"
+      style={{ background: "oklch(12% 0.02 250)" }}
+    >
       <div className="container mx-auto max-w-3xl">
         <motion.div
           className="text-center mb-12"

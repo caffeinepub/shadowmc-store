@@ -1,154 +1,80 @@
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { LogOut, Menu, ShoppingCart, User, X } from "lucide-react";
-import { useState } from "react";
-import { useCart } from "../context/CartContext";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { motion } from "motion/react";
+import CurrencyToggle from "./CurrencyToggle";
 
 interface NavbarProps {
   activeSection: string;
   onNavigate: (section: string) => void;
+  bannerVisible: boolean;
 }
 
-export default function Navbar({ activeSection, onNavigate }: NavbarProps) {
-  const { items, setIsOpen } = useCart();
-  const { login, clear, loginStatus, identity } = useInternetIdentity();
-  const [mobileOpen, setMobileOpen] = useState(false);
+const NAV_LINKS = [
+  { id: "home", label: "Home" },
+  { id: "ranks", label: "Ranks" },
+  { id: "coins", label: "Coins" },
+  { id: "payment", label: "Payment" },
+  { id: "history", label: "History" },
+];
 
-  const cartCount = items.reduce((sum, i) => sum + i.quantity, 0);
-  const isLoggedIn = loginStatus === "success" && !!identity;
-
-  const navLinks = [
-    { id: "home", label: "Home" },
-    { id: "ranks", label: "Ranks" },
-    { id: "coins", label: "Coins" },
-    { id: "history", label: "History" },
-  ];
-
+export default function Navbar({
+  activeSection,
+  onNavigate,
+  bannerVisible,
+}: NavbarProps) {
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 border-b border-border/50"
+      className="fixed left-0 right-0 z-50 border-b transition-all duration-300"
       style={{
-        background: "oklch(12% 0.02 250 / 0.95)",
-        backdropFilter: "blur(16px)",
+        top: bannerVisible ? "40px" : "0px",
+        background: "oklch(10% 0.02 250 / 0.85)",
+        backdropFilter: "blur(12px)",
+        borderColor: "oklch(22% 0.04 250)",
       }}
     >
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+      <div className="container mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <button
           type="button"
+          data-ocid="nav.home.link"
           onClick={() => onNavigate("home")}
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          className="font-pixel text-sm tracking-wide"
+          style={{ color: "oklch(78% 0.18 195)" }}
         >
-          <img
-            src="/assets/generated/shadowmc-logo-transparent.dim_400x120.png"
-            alt="ShadowMC"
-            className="h-8 w-auto object-contain"
-          />
+          ShadowMC
         </button>
 
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-1">
-          {navLinks.map((link) => (
+        {/* Nav links */}
+        <nav className="hidden md:flex items-center gap-6">
+          {NAV_LINKS.map((link) => (
             <button
               type="button"
               key={link.id}
               data-ocid={`nav.${link.id}.link`}
               onClick={() => onNavigate(link.id)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeSection === link.id
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-              }`}
+              className="text-sm font-medium transition-colors relative"
+              style={{
+                color:
+                  activeSection === link.id
+                    ? "oklch(78% 0.18 195)"
+                    : "oklch(65% 0.02 240)",
+              }}
             >
               {link.label}
+              {activeSection === link.id && (
+                <motion.div
+                  layoutId="nav-indicator"
+                  className="absolute -bottom-1 left-0 right-0 h-0.5 rounded-full"
+                  style={{ background: "oklch(78% 0.18 195)" }}
+                />
+              )}
             </button>
           ))}
         </nav>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          {/* Cart */}
-          <Button
-            data-ocid="nav.cart.button"
-            variant="ghost"
-            size="icon"
-            className="relative hover:text-primary hover:bg-primary/10"
-            onClick={() => setIsOpen(true)}
-          >
-            <ShoppingCart className="w-5 h-5" />
-            {cartCount > 0 && (
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-primary text-primary-foreground">
-                {cartCount}
-              </Badge>
-            )}
-          </Button>
-
-          {/* Login/Profile */}
-          {isLoggedIn ? (
-            <Button
-              data-ocid="nav.login.button"
-              variant="ghost"
-              size="sm"
-              className="gap-2 hover:text-primary hover:bg-primary/10"
-              onClick={clear}
-            >
-              <User className="w-4 h-4" />
-              <span className="hidden sm:inline">Logout</span>
-              <LogOut className="w-4 h-4" />
-            </Button>
-          ) : (
-            <Button
-              data-ocid="nav.login.button"
-              size="sm"
-              className="gap-2 bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30"
-              onClick={login}
-              disabled={loginStatus === "logging-in"}
-            >
-              <User className="w-4 h-4" />
-              {loginStatus === "logging-in" ? "Connecting..." : "Login"}
-            </Button>
-          )}
-
-          {/* Mobile menu */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setMobileOpen(!mobileOpen)}
-          >
-            {mobileOpen ? (
-              <X className="w-5 h-5" />
-            ) : (
-              <Menu className="w-5 h-5" />
-            )}
-          </Button>
+        {/* Right side */}
+        <div className="flex items-center gap-3">
+          <CurrencyToggle />
         </div>
       </div>
-
-      {/* Mobile Nav */}
-      {mobileOpen && (
-        <div className="md:hidden border-t border-border/50 bg-background/95 px-4 py-3 flex flex-col gap-1">
-          {navLinks.map((link) => (
-            <button
-              type="button"
-              key={link.id}
-              data-ocid={`nav.${link.id}.link`}
-              onClick={() => {
-                onNavigate(link.id);
-                setMobileOpen(false);
-              }}
-              className={`px-3 py-2 rounded-md text-sm font-medium text-left transition-all ${
-                activeSection === link.id
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-              }`}
-            >
-              {link.label}
-            </button>
-          ))}
-        </div>
-      )}
     </header>
   );
 }
