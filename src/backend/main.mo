@@ -80,6 +80,25 @@ actor {
     ranks : [Rank];
   };
 
+  // Manual UPI order types
+  public type ManualOrderItem = {
+    name : Text;
+    quantity : Nat;
+    priceINR : Nat;
+  };
+
+  public type ManualOrder = {
+    id : Nat;
+    timestamp : Time.Time;
+    username : Text;
+    email : Text;
+    items : [ManualOrderItem];
+    totalINR : Nat;
+    paymentMethod : Text;
+    screenshotBase64 : Text;
+    verified : Bool;
+  };
+
   var storeConfig : StoreConfig = {
     currency = "USD";
     rankDescription = "Awesome Minecraft ranks";
@@ -90,6 +109,10 @@ actor {
 
   // Separate map tracking which purchase IDs have been verified by admin
   let verifiedPurchaseIds = Map.empty<Nat, Time.Time>();
+
+  // Manual UPI orders storage
+  let manualOrders = List.empty<ManualOrder>();
+  var manualOrderIdCounter = 1;
 
   var rankIdCounter = 1;
   var purchaseIdCounter = 1;
@@ -202,7 +225,64 @@ actor {
     verifiedPurchaseIds.keys().toArray();
   };
 
-  // Stripe integration
+  // ── MANUAL UPI ORDERS ──────────────────────────────────────────────────────
+
+  // Anyone can submit a manual order (public endpoint, no auth required)
+  public shared func submitManualOrder(
+    username : Text,
+    email : Text,
+    items : [ManualOrderItem],
+    totalINR : Nat,
+    paymentMethod : Text,
+    screenshotBase64 : Text,
+  ) : async Nat {
+    let orderId = manualOrderIdCounter;
+    manualOrderIdCounter += 1;
+
+    let newOrder : ManualOrder = {
+      id = orderId;
+      timestamp = Time.now();
+      username;
+      email;
+      items;
+      totalINR;
+      paymentMethod;
+      screenshotBase64;
+      verified = false;
+    };
+
+    manualOrders.add(newOrder);
+    orderId;
+  };
+
+  // Get all manual orders (no auth -- admin panel uses PIN on frontend side)
+  public query func getManualOrders() : async [ManualOrder] {
+    manualOrders.toArray();
+  };
+
+  // Mark a manual order as verified
+  public shared func markManualOrderVerified(orderId : Nat) : async Bool {
+    var found = false;
+    let updated = List.empty<ManualOrder>();
+    for (order in manualOrders.values()) {
+      if (order.id == orderId) {
+        updated.add({ order with verified = true });
+        found := true;
+      } else {
+        updated.add(order);
+      };
+    };
+    if (found) {
+      manualOrders.clear();
+      for (o in updated.values()) {
+        manualOrders.add(o);
+      };
+    };
+    found;
+  };
+
+  // ── STRIPE INTEGRATION ─────────────────────────────────────────────────────
+
   var configuration : ?Stripe.StripeConfiguration = null;
 
   public query ({ caller }) func isStripeConfigured() : async Bool {

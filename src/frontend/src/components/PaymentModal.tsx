@@ -18,6 +18,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { createActorWithConfig } from "../config";
 import { useCart } from "../context/CartContext";
 import { useUserInfo } from "../context/UserInfoContext";
 import { useActor } from "../hooks/useActor";
@@ -111,6 +112,18 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   total: number;
 }
+
+// Extended actor type to include manual order methods not yet in generated wrapper
+type ActorWithManualOrders = {
+  submitManualOrder: (
+    username: string,
+    email: string,
+    items: Array<{ name: string; quantity: bigint; priceINR: bigint }>,
+    totalINR: bigint,
+    paymentMethod: string,
+    screenshotBase64: string,
+  ) => Promise<bigint>;
+};
 
 export default function PaymentModal({ open, onOpenChange, total }: Props) {
   const [step, setStep] = useState<Step>(1);
@@ -241,47 +254,47 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
           // silently ignore errors
         }
       }
-      // Save order with screenshot to localStorage for admin panel
+
+      // Submit order to backend canister (fire-and-forget)
+      const backendItems = items.map((i) => ({
+        name: i.name,
+        quantity: BigInt(i.quantity),
+        priceINR: BigInt(i.inrPrice ?? Math.round(i.price * INR_PER_USD)),
+      }));
+
+      const submitOrder = async (screenshotBase64: string) => {
+        try {
+          // Use an anonymous actor since submitManualOrder is a public endpoint
+          const anonActor = await createActorWithConfig();
+          const extActor = anonActor as unknown as ActorWithManualOrders;
+          await extActor.submitManualOrder(
+            username.trim(),
+            email.trim(),
+            backendItems,
+            BigInt(inrTotal),
+            selectedMethod?.name ?? "UPI",
+            screenshotBase64,
+          );
+        } catch (err) {
+          // silently ignore — order still shown as received to user
+          console.warn("Failed to save order to backend:", err);
+        }
+      };
+
       if (screenshot) {
         const reader = new FileReader();
         reader.onload = (e) => {
-          const base64 = e.target?.result as string;
-          const orderKey = `shadowmc_order_${Date.now()}`;
-          const orderData = {
-            id: orderKey,
-            timestamp: Date.now(),
-            username: username.trim(),
-            email: email.trim(),
-            items: items.map((i) => ({
-              name: i.name,
-              quantity: i.quantity,
-              price: i.inrPrice ?? Math.round(i.price * INR_PER_USD),
-            })),
-            totalINR: inrTotal,
-            paymentMethod: selectedMethod?.name ?? "UPI",
-            screenshotBase64: base64,
-          };
-          localStorage.setItem(orderKey, JSON.stringify(orderData));
+          const base64 = (e.target?.result as string) ?? "";
+          submitOrder(base64);
+        };
+        reader.onerror = () => {
+          submitOrder("");
         };
         reader.readAsDataURL(screenshot);
       } else {
-        // Save order without screenshot
-        const orderKey = `shadowmc_order_${Date.now()}`;
-        const orderData = {
-          id: orderKey,
-          timestamp: Date.now(),
-          username: username.trim(),
-          email: email.trim(),
-          items: items.map((i) => ({
-            name: i.name,
-            quantity: i.quantity,
-            price: i.inrPrice ?? Math.round(i.price * INR_PER_USD),
-          })),
-          totalINR: inrTotal,
-          paymentMethod: selectedMethod?.name ?? "UPI",
-        };
-        localStorage.setItem(orderKey, JSON.stringify(orderData));
+        submitOrder("");
       }
+
       setStep(5);
     }
   };

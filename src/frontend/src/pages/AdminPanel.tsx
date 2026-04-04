@@ -8,50 +8,50 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, EyeOff, LogOut, Package, Shield, Users, X } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  LogOut,
+  Package,
+  RefreshCw,
+  Shield,
+  Users,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createActorWithConfig } from "../config";
 
 const ADMIN_PIN = "1313";
 const ADMIN_AUTH_KEY = "shadowmc_admin_auth";
 
 interface OrderItem {
   name: string;
-  quantity: number;
-  price: number;
+  quantity: bigint;
+  priceINR: bigint;
 }
 
 interface Order {
-  id: string;
-  timestamp: number;
+  id: bigint;
+  timestamp: bigint; // nanoseconds from Time.now()
   username: string;
   email: string;
   items: OrderItem[];
-  totalINR: number;
+  totalINR: bigint;
   paymentMethod: string;
-  screenshotBase64?: string;
+  screenshotBase64: string;
+  verified: boolean;
 }
 
-function readOrdersFromStorage(): Order[] {
-  const orders: Order[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key?.startsWith("shadowmc_order_")) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          orders.push(JSON.parse(raw) as Order);
-        }
-      } catch {
-        // skip malformed entries
-      }
-    }
-  }
-  return orders.sort((a, b) => b.timestamp - a.timestamp);
-}
+// Extended actor type to include manual order methods not yet in generated wrapper
+type ActorWithManualOrders = {
+  getManualOrders: () => Promise<Order[]>;
+  markManualOrderVerified: (orderId: bigint) => Promise<boolean>;
+};
 
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleString("en-IN", {
+function formatDate(ts: bigint): string {
+  // ts is nanoseconds — convert to milliseconds
+  return new Date(Number(ts) / 1_000_000).toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -68,16 +68,35 @@ export default function AdminPanel() {
   const [pinError, setPinError] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const pinInputRef = useRef<HTMLInputElement>(null);
 
+  const fetchOrders = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const anonActor = await createActorWithConfig();
+      const extActor = anonActor as unknown as ActorWithManualOrders;
+      const result = await extActor.getManualOrders();
+      // Sort newest first by timestamp
+      const sorted = [...result].sort(
+        (a, b) => Number(b.timestamp) - Number(a.timestamp),
+      );
+      setOrders(sorted);
+    } catch (err) {
+      console.error("Failed to fetch orders:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
-      setOrders(readOrdersFromStorage());
+      fetchOrders();
     } else {
       setTimeout(() => pinInputRef.current?.focus(), 100);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchOrders]);
 
   const handlePinSubmit = () => {
     if (pin === ADMIN_PIN) {
@@ -100,9 +119,22 @@ export default function AdminPanel() {
     setIsAuthenticated(false);
     setPin("");
     setPinError("");
+    setOrders([]);
   };
 
-  const totalRevenue = orders.reduce((sum, o) => sum + o.totalINR, 0);
+  const handleMarkVerified = async (order: Order) => {
+    try {
+      const anonActor = await createActorWithConfig();
+      const extActor = anonActor as unknown as ActorWithManualOrders;
+      await extActor.markManualOrderVerified(order.id);
+      // Refresh the list
+      await fetchOrders();
+    } catch (err) {
+      console.error("Failed to verify order:", err);
+    }
+  };
+
+  const totalRevenue = orders.reduce((sum, o) => sum + Number(o.totalINR), 0);
   const uniquePlayers = new Set(orders.map((o) => o.username)).size;
 
   // ── PIN LOGIN SCREEN ──────────────────────────────────────────────────────
@@ -264,16 +296,32 @@ export default function AdminPanel() {
             ShadowMC Admin Panel
           </h1>
         </div>
-        <Button
-          data-ocid="admin.logout.button"
-          variant="ghost"
-          size="sm"
-          onClick={handleLogout}
-          className="flex items-center gap-2 text-sm"
-          style={{ color: "oklch(55% 0.05 250)" }}
-        >
-          <LogOut className="w-4 h-4" /> Logout
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            data-ocid="admin.refresh.button"
+            variant="ghost"
+            size="sm"
+            onClick={fetchOrders}
+            disabled={isLoading}
+            className="flex items-center gap-2 text-sm"
+            style={{ color: "oklch(62% 0.10 195)" }}
+          >
+            <RefreshCw
+              className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
+          <Button
+            data-ocid="admin.logout.button"
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-sm"
+            style={{ color: "oklch(55% 0.05 250)" }}
+          >
+            <LogOut className="w-4 h-4" /> Logout
+          </Button>
+        </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
@@ -365,7 +413,23 @@ export default function AdminPanel() {
             </p>
           </div>
 
-          {orders.length === 0 ? (
+          {isLoading && orders.length === 0 ? (
+            <div
+              data-ocid="admin.orders.loading_state"
+              className="flex flex-col items-center justify-center py-20 gap-4"
+            >
+              <RefreshCw
+                className="w-8 h-8 animate-spin"
+                style={{ color: "oklch(55% 0.08 195)" }}
+              />
+              <p
+                className="text-sm font-medium"
+                style={{ color: "oklch(50% 0.05 250)" }}
+              >
+                Loading orders...
+              </p>
+            </div>
+          ) : orders.length === 0 ? (
             <div
               data-ocid="admin.orders.empty_state"
               className="flex flex-col items-center justify-center py-20 gap-4"
@@ -406,6 +470,7 @@ export default function AdminPanel() {
                       "Method",
                       "Date",
                       "Screenshot",
+                      "Status",
                     ].map((h) => (
                       <TableHead
                         key={h}
@@ -420,7 +485,7 @@ export default function AdminPanel() {
                 <TableBody>
                   {orders.map((order, idx) => (
                     <TableRow
-                      key={order.id}
+                      key={String(order.id)}
                       data-ocid={`admin.orders.item.${idx + 1}`}
                       style={{
                         borderBottom: "1px solid oklch(16% 0.025 250)",
@@ -461,7 +526,7 @@ export default function AdminPanel() {
                             >
                               {item.name}{" "}
                               <span style={{ color: "oklch(50% 0.04 250)" }}>
-                                ×{item.quantity}
+                                ×{String(item.quantity)}
                               </span>
                             </div>
                           ))}
@@ -474,7 +539,7 @@ export default function AdminPanel() {
                           className="text-sm font-bold"
                           style={{ color: "oklch(75% 0.18 145)" }}
                         >
-                          ₹{order.totalINR.toLocaleString("en-IN")}
+                          ₹{Number(order.totalINR).toLocaleString("en-IN")}
                         </span>
                       </TableCell>
 
@@ -507,7 +572,7 @@ export default function AdminPanel() {
                             type="button"
                             data-ocid="admin.orders.screenshot.button"
                             onClick={() =>
-                              setPreviewImage(order.screenshotBase64!)
+                              setPreviewImage(order.screenshotBase64)
                             }
                             className="block transition-all hover:opacity-80 hover:scale-105 rounded overflow-hidden"
                             style={{
@@ -530,8 +595,38 @@ export default function AdminPanel() {
                             className="text-xs"
                             style={{ color: "oklch(38% 0.04 250)" }}
                           >
-                            No screenshot
+                            —
                           </span>
+                        )}
+                      </TableCell>
+
+                      {/* Status / Verify */}
+                      <TableCell>
+                        {order.verified ? (
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                            style={{
+                              background: "oklch(20% 0.04 145)",
+                              color: "oklch(72% 0.18 145)",
+                              border: "1px solid oklch(45% 0.15 145 / 0.35)",
+                            }}
+                          >
+                            ✓ Verified
+                          </span>
+                        ) : (
+                          <Button
+                            data-ocid="admin.orders.verify.button"
+                            size="sm"
+                            onClick={() => handleMarkVerified(order)}
+                            className="h-7 text-xs px-3"
+                            style={{
+                              background: "oklch(22% 0.04 195)",
+                              color: "oklch(72% 0.14 195)",
+                              border: "1px solid oklch(45% 0.12 195 / 0.4)",
+                            }}
+                          >
+                            Mark Verified
+                          </Button>
                         )}
                       </TableCell>
                     </TableRow>
