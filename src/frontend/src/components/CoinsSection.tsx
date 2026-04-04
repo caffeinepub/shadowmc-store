@@ -5,12 +5,14 @@ import { useCart } from "../context/CartContext";
 import { useCurrency } from "../context/CurrencyContext";
 import { useStoreInfo } from "../hooks/useQueries";
 
+const INR_PER_USD = 92;
+
 const FALLBACK_BUNDLES = [
   {
     id: "coins-1",
     productId: 1n,
     coins: 500,
-    price: 0.59,
+    price: 49 / INR_PER_USD,
     inrPrice: 49,
     label: null,
     bonus: null,
@@ -19,7 +21,7 @@ const FALLBACK_BUNDLES = [
     id: "coins-2",
     productId: 2n,
     coins: 1000,
-    price: 1.07,
+    price: 89 / INR_PER_USD,
     inrPrice: 89,
     label: null,
     bonus: "+100 bonus",
@@ -28,7 +30,7 @@ const FALLBACK_BUNDLES = [
     id: "coins-3",
     productId: 3n,
     coins: 2500,
-    price: 2.39,
+    price: 199 / INR_PER_USD,
     inrPrice: 199,
     label: "Most Popular",
     bonus: "+400 bonus",
@@ -37,7 +39,7 @@ const FALLBACK_BUNDLES = [
     id: "coins-4",
     productId: 4n,
     coins: 5000,
-    price: 4.18,
+    price: 349 / INR_PER_USD,
     inrPrice: 349,
     label: "Best Value",
     bonus: "+1,000 bonus",
@@ -46,7 +48,7 @@ const FALLBACK_BUNDLES = [
     id: "coins-5",
     productId: 5n,
     coins: 10000,
-    price: 7.17,
+    price: 599 / INR_PER_USD,
     inrPrice: 599,
     label: null,
     bonus: "+2,500 bonus",

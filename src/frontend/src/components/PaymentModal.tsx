@@ -13,16 +13,18 @@ import {
   Copy,
   CreditCard,
   Loader2,
+  Upload,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "../context/CartContext";
+import { useUserInfo } from "../context/UserInfoContext";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCreateCheckoutSession } from "../hooks/useQueries";
 
 const UPI_ID = "8008366007@upi";
-const INR_PER_USD = 83.5;
+const INR_PER_USD = 92;
 
 const INSTRUCTIONS = [
   "Open {method} app",
@@ -101,7 +103,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
   },
 ];
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
 
 interface Props {
   open: boolean;
@@ -114,11 +116,17 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(
     null,
   );
-  const [username, setUsername] = useState("");
+  const { userInfo } = useUserInfo();
+  const [username, setUsername] = useState(() => userInfo.minecraftUsername);
   const [usernameError, setUsernameError] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => userInfo.playerEmail);
   const [emailError, setEmailError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [screenshotPreviewUrl, setScreenshotPreviewUrl] = useState<
+    string | null
+  >(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { clearCart, items } = useCart();
   const { mutateAsync: createSession, isPending: isStripeLoading } =
     useCreateCheckoutSession();
@@ -126,6 +134,34 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
 
   // total is in USD (from CartContext). Convert to INR for display.
   const inrTotal = Math.round(total * INR_PER_USD);
+
+  // Sync username/email from userInfo when modal opens (pre-fill from entry popup)
+  useEffect(() => {
+    if (open) {
+      if (userInfo.minecraftUsername) setUsername(userInfo.minecraftUsername);
+      if (userInfo.playerEmail) setEmail(userInfo.playerEmail);
+    }
+  }, [open, userInfo.minecraftUsername, userInfo.playerEmail]);
+
+  // Clean up object URL on unmount or when screenshot changes
+  useEffect(() => {
+    return () => {
+      if (screenshotPreviewUrl) {
+        URL.revokeObjectURL(screenshotPreviewUrl);
+      }
+    };
+  }, [screenshotPreviewUrl]);
+
+  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (screenshotPreviewUrl) {
+        URL.revokeObjectURL(screenshotPreviewUrl);
+      }
+      setScreenshot(file);
+      setScreenshotPreviewUrl(URL.createObjectURL(file));
+    }
+  };
 
   const handleMethodSelect = async (method: PaymentMethod) => {
     if (method.id === "stripe") {
@@ -187,7 +223,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
     } else {
       setEmailError("");
     }
-    if (valid) setStep(4);
+    if (valid) setStep(5);
   };
 
   const handleClose = () => {
@@ -195,10 +231,13 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
     setTimeout(() => {
       setStep(1);
       setSelectedMethod(null);
-      setUsername("");
       setUsernameError("");
-      setEmail("");
       setEmailError("");
+      setScreenshot(null);
+      if (screenshotPreviewUrl) {
+        URL.revokeObjectURL(screenshotPreviewUrl);
+        setScreenshotPreviewUrl(null);
+      }
     }, 300);
   };
 
@@ -207,14 +246,14 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
     handleClose();
   };
 
-  const stepLabels = ["Method", "Pay", "Details", "Done"];
+  const stepLabels = ["Method", "Pay", "Proof", "Details", "Done"];
 
   const instructions = selectedMethod
     ? [
         `Open ${selectedMethod.name} app`,
         "Send to the UPI ID above",
         `Enter exact amount ₹${inrTotal.toLocaleString("en-IN")}`,
-        "Screenshot for your records",
+        "Take a screenshot for your records",
       ]
     : INSTRUCTIONS;
 
@@ -235,7 +274,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
           style={{ borderBottom: "1px solid oklch(20% 0.03 250)" }}
         >
           {stepLabels.map((label, i) => {
-            const n = i + 1;
+            const n = (i + 1) as Step;
             const active = step === n;
             const done = step > n;
             return (
@@ -270,7 +309,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                 </div>
                 {i < stepLabels.length - 1 && (
                   <div
-                    className="w-8 h-px mb-3"
+                    className="w-6 h-px mb-3"
                     style={{
                       background:
                         step > n
@@ -416,7 +455,43 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                 </DialogTitle>
               </DialogHeader>
 
-              {/* Amount */}
+              {/* Cart items list */}
+              {items.length > 0 && (
+                <div
+                  className="rounded-xl p-3 mb-4 space-y-1.5"
+                  style={{
+                    background: "oklch(16% 0.025 250)",
+                    border: "1px solid oklch(22% 0.03 250)",
+                  }}
+                >
+                  <p
+                    className="text-xs font-semibold mb-2"
+                    style={{ color: "oklch(65% 0.06 250)" }}
+                  >
+                    Order Summary:
+                  </p>
+                  {items.map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span style={{ color: "oklch(75% 0.05 250)" }}>
+                        {item.name} × {item.quantity}
+                      </span>
+                      <span
+                        className="font-semibold"
+                        style={{ color: "oklch(82% 0.08 250)" }}
+                      >
+                        ₹
+                        {(
+                          (item.inrPrice ??
+                            Math.round(item.price * INR_PER_USD)) *
+                          item.quantity
+                        ).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* UPI headline + Amount */}
               <div
                 className="rounded-xl p-4 mb-4 text-center"
                 style={{
@@ -424,6 +499,13 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                   border: "1px solid oklch(25% 0.04 250)",
                 }}
               >
+                <p
+                  className="text-sm font-semibold mb-2"
+                  style={{ color: "oklch(72% 0.10 195)" }}
+                >
+                  💳 Complete your payment to:{" "}
+                  <span className="font-mono">{UPI_ID}</span>
+                </p>
                 <p
                   className="text-xs mb-1"
                   style={{ color: "oklch(55% 0.05 250)" }}
@@ -438,7 +520,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                 </p>
               </div>
 
-              {/* UPI ID */}
+              {/* UPI ID copy */}
               <p
                 className="text-xs font-medium mb-2"
                 style={{ color: "oklch(55% 0.05 250)" }}
@@ -524,12 +606,12 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                 }}
                 onClick={() => setStep(3)}
               >
-                <Check className="w-4 h-4" /> I've completed the payment
+                <Check className="w-4 h-4" /> I&apos;ve completed the payment
               </Button>
             </motion.div>
           )}
 
-          {/* Step 3 — Username + Email */}
+          {/* Step 3 — Upload Screenshot */}
           {step === 3 && (
             <motion.div
               key="step3"
@@ -552,13 +634,171 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                   className="text-xl font-bold"
                   style={{ color: "oklch(90% 0.04 250)" }}
                 >
+                  Upload Payment Screenshot
+                </DialogTitle>
+                <p
+                  className="text-sm mt-1"
+                  style={{ color: "oklch(55% 0.05 250)" }}
+                >
+                  Please upload your payment screenshot as proof
+                </p>
+              </DialogHeader>
+
+              {/* Upload zone — label wraps hidden input for semantic file upload */}
+              <label
+                htmlFor="screenshot-upload"
+                className="rounded-xl mb-5 overflow-hidden cursor-pointer transition-all hover:opacity-90 block"
+                style={{
+                  border: screenshot
+                    ? "2px solid oklch(65% 0.18 145 / 0.6)"
+                    : "2px dashed oklch(40% 0.06 250)",
+                  background: screenshot
+                    ? "oklch(14% 0.03 145 / 0.3)"
+                    : "oklch(16% 0.025 250)",
+                }}
+              >
+                {screenshotPreviewUrl ? (
+                  <div className="relative">
+                    <img
+                      src={screenshotPreviewUrl}
+                      alt="Payment screenshot preview"
+                      className="w-full object-contain rounded-xl"
+                      style={{ maxHeight: "200px" }}
+                    />
+                    <div
+                      className="absolute bottom-0 left-0 right-0 px-3 py-2"
+                      style={{
+                        background:
+                          "linear-gradient(to top, oklch(10% 0.02 250 / 0.9), transparent)",
+                      }}
+                    >
+                      <p
+                        className="text-xs font-medium truncate"
+                        style={{ color: "oklch(80% 0.08 250)" }}
+                      >
+                        {screenshot?.name}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-10 gap-3">
+                    <div
+                      className="w-14 h-14 rounded-full flex items-center justify-center"
+                      style={{ background: "oklch(20% 0.04 250)" }}
+                    >
+                      <Upload
+                        className="w-6 h-6"
+                        style={{ color: "oklch(60% 0.08 250)" }}
+                      />
+                    </div>
+                    <div className="text-center">
+                      <p
+                        className="text-sm font-medium"
+                        style={{ color: "oklch(68% 0.06 250)" }}
+                      >
+                        Click to upload screenshot
+                      </p>
+                      <p
+                        className="text-xs mt-0.5"
+                        style={{ color: "oklch(48% 0.04 250)" }}
+                      >
+                        PNG, JPG or JPEG
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </label>
+
+              {/* Hidden file input */}
+              <input
+                id="screenshot-upload"
+                ref={fileInputRef}
+                data-ocid="payment.upload_button"
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                className="hidden"
+                onChange={handleScreenshotChange}
+              />
+
+              {screenshot && (
+                <div
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg mb-4"
+                  style={{
+                    background: "oklch(18% 0.04 145 / 0.4)",
+                    border: "1px solid oklch(55% 0.15 145 / 0.3)",
+                  }}
+                >
+                  <Check
+                    className="w-4 h-4 flex-shrink-0"
+                    style={{ color: "oklch(65% 0.18 145)" }}
+                  />
+                  <span
+                    className="text-xs font-medium truncate"
+                    style={{ color: "oklch(70% 0.10 145)" }}
+                  >
+                    {screenshot.name}
+                  </span>
+                  <span
+                    className="text-xs ml-auto flex-shrink-0"
+                    style={{ color: "oklch(50% 0.04 250)" }}
+                  >
+                    {(screenshot.size / 1024).toFixed(0)} KB
+                  </span>
+                </div>
+              )}
+
+              <Button
+                data-ocid="payment.proof.button"
+                className="w-full font-semibold gap-2"
+                disabled={!screenshot}
+                style={{
+                  background: screenshot
+                    ? "oklch(78% 0.18 195)"
+                    : "oklch(28% 0.04 250)",
+                  color: screenshot
+                    ? "oklch(10% 0.02 250)"
+                    : "oklch(45% 0.04 250)",
+                  boxShadow: screenshot
+                    ? "0 0 16px oklch(78% 0.18 195 / 0.4)"
+                    : "none",
+                }}
+                onClick={() => setStep(4)}
+              >
+                Continue
+              </Button>
+            </motion.div>
+          )}
+
+          {/* Step 4 — Username + Email */}
+          {step === 4 && (
+            <motion.div
+              key="step4"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.2 }}
+              className="p-6"
+            >
+              <DialogHeader className="mb-5">
+                <button
+                  type="button"
+                  onClick={() => setStep(3)}
+                  className="flex items-center gap-1.5 text-xs mb-3 hover:opacity-80 transition-opacity w-fit"
+                  style={{ color: "oklch(55% 0.05 250)" }}
+                >
+                  <ArrowLeft className="w-3 h-3" /> Back
+                </button>
+                <DialogTitle
+                  className="text-xl font-bold"
+                  style={{ color: "oklch(90% 0.04 250)" }}
+                >
                   Almost done! 🎮
                 </DialogTitle>
                 <p
                   className="text-sm mt-1"
                   style={{ color: "oklch(55% 0.05 250)" }}
                 >
-                  Tell us your Minecraft username and email.
+                  Confirm your Minecraft username and email.
                 </p>
               </DialogHeader>
 
@@ -669,10 +909,10 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
             </motion.div>
           )}
 
-          {/* Step 4 — Success */}
-          {step === 4 && (
+          {/* Step 5 — Success */}
+          {step === 5 && (
             <motion.div
-              key="step4"
+              key="step5"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -732,7 +972,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
 
                 <Button
                   data-ocid="payment.success.close_button"
-                  className="w-full font-semibold"
+                  className="w-full font-semibold mb-3"
                   style={{
                     background: "oklch(65% 0.18 145)",
                     color: "oklch(10% 0.02 145)",
@@ -740,8 +980,24 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                   }}
                   onClick={handleCloseAndClear}
                 >
-                  Close & Back to Store
+                  Close &amp; Back to Store
                 </Button>
+
+                {/* Discord CTA */}
+                <a
+                  data-ocid="payment.success.discord.button"
+                  href="https://discord.gg/rcKTBgQU"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full h-10 rounded-md font-semibold text-sm transition-all hover:opacity-90"
+                  style={{
+                    border: "1px solid oklch(52% 0.22 285 / 0.6)",
+                    color: "oklch(72% 0.18 285)",
+                    background: "oklch(52% 0.22 285 / 0.12)",
+                  }}
+                >
+                  🎮 Join our Discord server for updates &amp; support
+                </a>
               </motion.div>
             </motion.div>
           )}

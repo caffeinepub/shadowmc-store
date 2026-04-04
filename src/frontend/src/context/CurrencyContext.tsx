@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from "react";
 
-const INR_TO_USD = 1 / 83.5;
+const INR_TO_USD = 1 / 92;
 
 type Currency = "USD" | "INR";
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import CartDrawer from "./components/CartDrawer";
 import CoinsSection from "./components/CoinsSection";
+import EntryPopup from "./components/EntryPopup";
 import Footer from "./components/Footer";
 import Hero from "./components/Hero";
 import LaunchBanner from "./components/LaunchBanner";
@@ -13,6 +14,7 @@ import PurchaseHistory from "./components/PurchaseHistory";
 import RanksSection from "./components/RanksSection";
 import { CartProvider } from "./context/CartContext";
 import { CurrencyProvider } from "./context/CurrencyContext";
+import { UserInfoProvider, useUserInfo } from "./context/UserInfoContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,6 +25,7 @@ const queryClient = new QueryClient({
 function StoreApp() {
   const [activeSection, setActiveSection] = useState("home");
   const [bannerVisible, setBannerVisible] = useState(true);
+  const { userInfo } = useUserInfo();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -75,6 +78,9 @@ function StoreApp() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Entry popup — shown before store access */}
+      {!userInfo.hasEnteredStore && <EntryPopup />}
+
       <LaunchBanner
         visible={bannerVisible}
         onDismiss={() => setBannerVisible(false)}
@@ -116,9 +122,11 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <CurrencyProvider>
-        <CartProvider>
-          <StoreApp />
-        </CartProvider>
+        <UserInfoProvider>
+          <CartProvider>
+            <StoreApp />
+          </CartProvider>
+        </UserInfoProvider>
       </CurrencyProvider>
     </QueryClientProvider>
   );

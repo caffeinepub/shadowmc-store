@@ -45,7 +45,7 @@ export default function Hero({ onNavigate }: HeroProps) {
   return (
     <section
       className="relative min-h-screen flex items-center justify-center overflow-hidden grid-bg"
-      style={{ paddingTop: "4rem" }}
+      style={{ paddingTop: "7rem" }}
     >
       {/* Hero background */}
       <div
@@ -91,17 +91,20 @@ export default function Hero({ onNavigate }: HeroProps) {
 
       {/* Content */}
       <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-        >
-          <img
-            src="/assets/generated/shadowmc-logo-transparent.dim_400x120.png"
-            alt="ShadowMC"
-            className="mx-auto mb-6 h-20 w-auto object-contain"
-          />
-        </motion.div>
+        <div className="pt-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+          >
+            <img
+              src="/assets/generated/shadowmc-logo-transparent.dim_400x120.png"
+              alt="ShadowMC"
+              className="mx-auto mb-6 w-auto object-contain"
+              style={{ maxHeight: "96px", maxWidth: "320px" }}
+            />
+          </motion.div>
+        </div>
 
         <motion.h1
           className="font-pixel text-glow-cyan mb-4"

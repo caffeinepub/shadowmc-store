@@ -5,6 +5,8 @@ import { useCart } from "../context/CartContext";
 import { useCurrency } from "../context/CurrencyContext";
 import { useStoreInfo } from "../hooks/useQueries";
 
+const INR_PER_USD = 92;
+
 const RANK_IMAGES: Record<string, string> = {
   vip: "/assets/generated/rank-vip-transparent.dim_200x200.png",
   mvp: "/assets/generated/rank-mvp-transparent.dim_200x200.png",
@@ -344,7 +346,7 @@ export default function RanksSection() {
                       addItem({
                         id: rank.id,
                         name: `${rank.name} Rank`,
-                        price: rank.price / 83.5,
+                        price: rank.price / INR_PER_USD,
                         inrPrice: rank.price,
                         quantity: 1,
                         type: "rank",
@@ -410,10 +412,7 @@ export default function RanksSection() {
                   background: "oklch(45% 0.25 25 / 0.08)",
                 }}
                 onClick={() =>
-                  window.open(
-                    "https://discord.com/channels/1482330066762469426/1489961634066862090",
-                    "_blank",
-                  )
+                  window.open("https://discord.gg/sNYGSQ3p", "_blank")
                 }
               >
                 Apply for Media Rank →

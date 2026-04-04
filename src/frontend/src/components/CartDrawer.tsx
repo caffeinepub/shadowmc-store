@@ -12,6 +12,8 @@ import { useCart } from "../context/CartContext";
 import { useCurrency } from "../context/CurrencyContext";
 import PaymentModal from "./PaymentModal";
 
+const INR_PER_USD = 92;
+
 export default function CartDrawer() {
   const {
     items,
@@ -29,7 +31,7 @@ export default function CartDrawer() {
   const displayTotal =
     currency === "INR"
       ? items.reduce((sum, item) => {
-          const inr = item.inrPrice ?? Math.round(item.price * 83.5);
+          const inr = item.inrPrice ?? Math.round(item.price * INR_PER_USD);
           return sum + inr * item.quantity;
         }, 0)
       : total;
@@ -93,7 +95,7 @@ export default function CartDrawer() {
                 <div className="space-y-3">
                   {items.map((item, index) => {
                     const unitInr =
-                      item.inrPrice ?? Math.round(item.price * 83.5);
+                      item.inrPrice ?? Math.round(item.price * INR_PER_USD);
                     const lineTotal =
                       currency === "INR"
                         ? `₹${(unitInr * item.quantity).toLocaleString("en-IN")}`
