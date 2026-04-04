@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "../context/CartContext";
 import { useUserInfo } from "../context/UserInfoContext";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCreateCheckoutSession } from "../hooks/useQueries";
 
@@ -131,6 +132,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
   const { mutateAsync: createSession, isPending: isStripeLoading } =
     useCreateCheckoutSession();
   const { login, identity } = useInternetIdentity();
+  const { actor } = useActor();
 
   // total is in USD (from CartContext). Convert to INR for display.
   const inrTotal = Math.round(total * INR_PER_USD);
@@ -223,7 +225,65 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
     } else {
       setEmailError("");
     }
-    if (valid) setStep(5);
+    if (valid) {
+      // Fire-and-forget: save user profile if logged in (non-anonymous)
+      if (actor && identity && !identity.getPrincipal().isAnonymous()) {
+        try {
+          actor
+            .saveCallerUserProfile({
+              id: identity.getPrincipal(),
+              username: username.trim(),
+            })
+            .catch(() => {
+              // silently ignore errors
+            });
+        } catch {
+          // silently ignore errors
+        }
+      }
+      // Save order with screenshot to localStorage for admin panel
+      if (screenshot) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const base64 = e.target?.result as string;
+          const orderKey = `shadowmc_order_${Date.now()}`;
+          const orderData = {
+            id: orderKey,
+            timestamp: Date.now(),
+            username: username.trim(),
+            email: email.trim(),
+            items: items.map((i) => ({
+              name: i.name,
+              quantity: i.quantity,
+              price: i.inrPrice ?? Math.round(i.price * INR_PER_USD),
+            })),
+            totalINR: inrTotal,
+            paymentMethod: selectedMethod?.name ?? "UPI",
+            screenshotBase64: base64,
+          };
+          localStorage.setItem(orderKey, JSON.stringify(orderData));
+        };
+        reader.readAsDataURL(screenshot);
+      } else {
+        // Save order without screenshot
+        const orderKey = `shadowmc_order_${Date.now()}`;
+        const orderData = {
+          id: orderKey,
+          timestamp: Date.now(),
+          username: username.trim(),
+          email: email.trim(),
+          items: items.map((i) => ({
+            name: i.name,
+            quantity: i.quantity,
+            price: i.inrPrice ?? Math.round(i.price * INR_PER_USD),
+          })),
+          totalINR: inrTotal,
+          paymentMethod: selectedMethod?.name ?? "UPI",
+        };
+        localStorage.setItem(orderKey, JSON.stringify(orderData));
+      }
+      setStep(5);
+    }
   };
 
   const handleClose = () => {

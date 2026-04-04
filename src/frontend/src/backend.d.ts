@@ -110,6 +110,8 @@ export interface backendInterface {
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
+    markPurchaseVerified(purchaseId: bigint): Promise<boolean>;
+    getVerifiedPurchaseIds(): Promise<Array<bigint>>;
     purchaseProduct(productId: bigint, productType: ProductType, priceCents: bigint, paymentSessionId: string): Promise<string>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;

@@ -15,12 +15,19 @@ import RanksSection from "./components/RanksSection";
 import { CartProvider } from "./context/CartContext";
 import { CurrencyProvider } from "./context/CurrencyContext";
 import { UserInfoProvider, useUserInfo } from "./context/UserInfoContext";
+import { InternetIdentityProvider } from "./hooks/useInternetIdentity";
+import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: 2, staleTime: 30_000 },
   },
 });
+
+function isAdminPage(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("page") === "admin" || window.location.hash === "#admin";
+}
 
 function StoreApp() {
   const [activeSection, setActiveSection] = useState("home");
@@ -119,15 +126,26 @@ function StoreApp() {
 }
 
 export default function App() {
+  // Admin panel — no Internet Identity required, uses PIN auth
+  if (isAdminPage()) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <AdminPanel />
+      </QueryClientProvider>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
-      <CurrencyProvider>
-        <UserInfoProvider>
-          <CartProvider>
-            <StoreApp />
-          </CartProvider>
-        </UserInfoProvider>
-      </CurrencyProvider>
+      <InternetIdentityProvider>
+        <CurrencyProvider>
+          <UserInfoProvider>
+            <CartProvider>
+              <StoreApp />
+            </CartProvider>
+          </UserInfoProvider>
+        </CurrencyProvider>
+      </InternetIdentityProvider>
     </QueryClientProvider>
   );
 }

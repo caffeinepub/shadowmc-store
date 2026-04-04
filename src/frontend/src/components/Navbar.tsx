@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { useIsAdmin } from "../hooks/useQueries";
 import CurrencyToggle from "./CurrencyToggle";
 
 interface NavbarProps {
@@ -20,6 +21,8 @@ export default function Navbar({
   onNavigate,
   bannerVisible,
 }: NavbarProps) {
+  const { data: isAdmin } = useIsAdmin();
+
   return (
     <header
       className="fixed left-0 right-0 z-50 border-b transition-all duration-300"
@@ -72,6 +75,19 @@ export default function Navbar({
 
         {/* Right side */}
         <div className="flex items-center gap-3">
+          {isAdmin === true && (
+            <button
+              type="button"
+              data-ocid="nav.admin.link"
+              onClick={() => {
+                window.location.href = "?page=admin";
+              }}
+              className="text-xs font-medium transition-colors hover:opacity-80"
+              style={{ color: "oklch(55% 0.1 250)" }}
+            >
+              Admin
+            </button>
+          )}
           <CurrencyToggle />
           <motion.a
             href="https://discord.gg/rcKTBgQU"

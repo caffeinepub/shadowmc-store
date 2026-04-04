@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, Coins, Loader2, Package, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
-import type { Purchase } from "../backend.d";
+import type { Purchase } from "../backend";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCallerPurchases } from "../hooks/useQueries";
 

@@ -88,6 +88,9 @@ actor {
 
   let purchases = List.empty<Purchase>();
 
+  // Separate map tracking which purchase IDs have been verified by admin
+  let verifiedPurchaseIds = Map.empty<Nat, Time.Time>();
+
   var rankIdCounter = 1;
   var purchaseIdCounter = 1;
   var coinBundleIdCounter = 1;
@@ -180,6 +183,23 @@ actor {
       func(p) { p.caller == caller }
     );
     userPurchases.toArray();
+  };
+
+  // Admin: mark a purchase as verified (UPI payment confirmed)
+  public shared ({ caller }) func markPurchaseVerified(purchaseId : Nat) : async Bool {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can verify purchases");
+    };
+    verifiedPurchaseIds.add(purchaseId, Time.now());
+    true;
+  };
+
+  // Admin: get all verified purchase IDs
+  public query ({ caller }) func getVerifiedPurchaseIds() : async [Nat] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can view verified purchases");
+    };
+    verifiedPurchaseIds.keys().toArray();
   };
 
   // Stripe integration
