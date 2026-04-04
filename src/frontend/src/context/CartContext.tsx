@@ -10,6 +10,7 @@ interface CartContextType {
   total: number;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  openCart: () => void;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -28,8 +29,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, item];
     });
-    setIsOpen(true);
+    // NOTE: We deliberately do NOT call setIsOpen(true) here anymore.
+    // The caller (RanksSection, CoinsSection) will show SuggestionsModal first,
+    // then open the cart when the modal is dismissed via openCart().
   };
+
+  const openCart = () => setIsOpen(true);
 
   const removeItem = (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -63,6 +68,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         total,
         isOpen,
         setIsOpen,
+        openCart,
       }}
     >
       {children}

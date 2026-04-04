@@ -10,6 +10,7 @@ export interface LocalOrder {
   username: string;
   email: string;
   verified: boolean;
+  backendId?: number; // Optional: ID returned by submitManualOrder (Nat as number)
 }
 
 export function loadLocalOrders(): LocalOrder[] {
@@ -28,6 +29,21 @@ export function saveLocalOrder(order: LocalOrder): void {
     const existing = loadLocalOrders();
     existing.push(order);
     localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(existing));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function updateLocalOrderBackendId(
+  orderId: string,
+  backendId: number,
+): void {
+  try {
+    const existing = loadLocalOrders();
+    const updated = existing.map((o) =>
+      o.id === orderId ? { ...o, backendId } : o,
+    );
+    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updated));
   } catch {
     // ignore storage errors
   }

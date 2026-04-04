@@ -4,6 +4,7 @@ import { Clock, Coins, Loader2, Package, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { Purchase } from "../backend";
+import { createRawActorWithConfig } from "../config";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCallerPurchases } from "../hooks/useQueries";
 import { type LocalOrder, loadLocalOrders } from "../utils/localOrders";
@@ -23,10 +24,51 @@ export default function PurchaseHistory() {
   const isLoggedIn = loginStatus === "success" && !!identity;
   const { data: stripePurchases, isLoading } = useCallerPurchases();
   const [localOrders, setLocalOrders] = useState<LocalOrder[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // Load local manual orders on mount
+  // Load local manual orders and sync verified status from backend
   useEffect(() => {
-    setLocalOrders(loadLocalOrders());
+    const syncOrders = async () => {
+      const orders = loadLocalOrders();
+      setLocalOrders(orders);
+
+      // If there are any orders with a backendId, fetch backend orders to sync verified status
+      const ordersWithBackendId = orders.filter(
+        (o) => o.backendId !== undefined,
+      );
+      if (ordersWithBackendId.length === 0) return;
+
+      setIsSyncing(true);
+      try {
+        const rawActor = await createRawActorWithConfig();
+        const backendOrders = await rawActor.getManualOrders();
+
+        // Build a map of backendId -> verified status
+        const verifiedMap = new Map<number, boolean>();
+        for (const bo of backendOrders) {
+          verifiedMap.set(Number(bo.id), bo.verified);
+        }
+
+        // Merge verified status from backend into local orders (in-memory only, don't persist)
+        const mergedOrders = orders.map((order) => {
+          if (order.backendId !== undefined) {
+            const backendVerified = verifiedMap.get(order.backendId);
+            if (backendVerified !== undefined) {
+              return { ...order, verified: backendVerified };
+            }
+          }
+          return order;
+        });
+
+        setLocalOrders(mergedOrders);
+      } catch (err) {
+        console.warn("Failed to sync order status from backend:", err);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    syncOrders();
   }, []);
 
   const hasLocalOrders = localOrders.length > 0;
@@ -56,6 +98,15 @@ export default function PurchaseHistory() {
           </h2>
           <p className="text-sm" style={{ color: "oklch(50% 0.05 250)" }}>
             Your recent orders on this device
+            {isSyncing && (
+              <span
+                className="ml-2 inline-flex items-center gap-1"
+                style={{ color: "oklch(60% 0.08 195)" }}
+              >
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span className="text-xs">Syncing...</span>
+              </span>
+            )}
           </p>
         </motion.div>
 

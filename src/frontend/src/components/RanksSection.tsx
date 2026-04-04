@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Check, Crown, Shield, Star, Youtube, Zap } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
 import { useCart } from "../context/CartContext";
 import { useCurrency } from "../context/CurrencyContext";
 import { useStoreInfo } from "../hooks/useQueries";
+import SuggestionsModal from "./SuggestionsModal";
 
 const INR_PER_USD = 92;
 
@@ -134,9 +136,18 @@ const RANK_STYLES: Record<
 };
 
 export default function RanksSection() {
-  const { addItem } = useCart();
+  const { addItem, openCart } = useCart();
   const { data: storeInfo } = useStoreInfo();
   const { formatPrice } = useCurrency();
+  const [suggestionState, setSuggestionState] = useState<{
+    open: boolean;
+    itemId: string;
+    itemName: string;
+  }>({
+    open: false,
+    itemId: "",
+    itemName: "",
+  });
 
   const ranks = storeInfo?.ranks?.length
     ? [
@@ -153,12 +164,49 @@ export default function RanksSection() {
       ]
     : FALLBACK_RANKS;
 
+  const handleBuyNow = (
+    rank: (typeof FALLBACK_RANKS)[0] & {
+      id: string;
+      productId: bigint;
+      price: number;
+    },
+  ) => {
+    addItem({
+      id: rank.id,
+      name: `${rank.name} Rank`,
+      price: rank.price / INR_PER_USD,
+      inrPrice: rank.price,
+      quantity: 1,
+      type: "rank",
+      productId: rank.productId,
+      tier: rank.tier,
+    });
+    setSuggestionState({
+      open: true,
+      itemId: rank.id,
+      itemName: `${rank.name} Rank`,
+    });
+  };
+
+  const handleSuggestionsClose = () => {
+    setSuggestionState((prev) => ({ ...prev, open: false }));
+    openCart();
+  };
+
   return (
     <section
       id="ranks"
       className="py-24 px-4"
       style={{ background: "oklch(12% 0.02 250)" }}
     >
+      <SuggestionsModal
+        open={suggestionState.open}
+        onClose={handleSuggestionsClose}
+        addedItemId={suggestionState.itemId}
+        addedItemType="rank"
+        addedItemName={suggestionState.itemName}
+      />
+
       <div className="container mx-auto max-w-6xl">
         <motion.div
           className="text-center mb-16"
@@ -342,18 +390,7 @@ export default function RanksSection() {
                       color: style.text,
                       border: `1px solid ${style.border}`,
                     }}
-                    onClick={() =>
-                      addItem({
-                        id: rank.id,
-                        name: `${rank.name} Rank`,
-                        price: rank.price / INR_PER_USD,
-                        inrPrice: rank.price,
-                        quantity: 1,
-                        type: "rank",
-                        productId: rank.productId,
-                        tier: rank.tier,
-                      })
-                    }
+                    onClick={() => handleBuyNow(rank)}
                   >
                     Buy Now
                   </Button>

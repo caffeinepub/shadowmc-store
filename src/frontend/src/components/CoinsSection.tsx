@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
 import { useCart } from "../context/CartContext";
 import { useCurrency } from "../context/CurrencyContext";
 import { useStoreInfo } from "../hooks/useQueries";
+import SuggestionsModal from "./SuggestionsModal";
 
 const INR_PER_USD = 92;
 
@@ -56,9 +58,18 @@ const FALLBACK_BUNDLES = [
 ];
 
 export default function CoinsSection() {
-  const { addItem } = useCart();
+  const { addItem, openCart } = useCart();
   const { data: storeInfo } = useStoreInfo();
   const { formatPriceWithINR } = useCurrency();
+  const [suggestionState, setSuggestionState] = useState<{
+    open: boolean;
+    itemId: string;
+    itemName: string;
+  }>({
+    open: false,
+    itemId: "",
+    itemName: "",
+  });
 
   const bundles = storeInfo?.coinBundles?.length
     ? storeInfo.coinBundles.map((b, i) => ({
@@ -70,12 +81,51 @@ export default function CoinsSection() {
       }))
     : FALLBACK_BUNDLES;
 
+  const handleBuyNow = (
+    bundle: (typeof FALLBACK_BUNDLES)[0] & {
+      id: string;
+      productId: bigint;
+      coins: number;
+      price: number;
+      inrPrice: number;
+    },
+  ) => {
+    addItem({
+      id: bundle.id,
+      name: `${bundle.coins.toLocaleString()} Coins`,
+      price: bundle.price,
+      inrPrice: bundle.inrPrice,
+      quantity: 1,
+      type: "coins",
+      productId: bundle.productId,
+      coins: bundle.coins,
+    });
+    setSuggestionState({
+      open: true,
+      itemId: bundle.id,
+      itemName: `${bundle.coins.toLocaleString()} Coins`,
+    });
+  };
+
+  const handleSuggestionsClose = () => {
+    setSuggestionState((prev) => ({ ...prev, open: false }));
+    openCart();
+  };
+
   return (
     <section
       id="coins"
       className="py-24 px-4"
       style={{ background: "oklch(11% 0.02 250)" }}
     >
+      <SuggestionsModal
+        open={suggestionState.open}
+        onClose={handleSuggestionsClose}
+        addedItemId={suggestionState.itemId}
+        addedItemType="coins"
+        addedItemName={suggestionState.itemName}
+      />
+
       <div className="container mx-auto max-w-6xl">
         <motion.div
           className="text-center mb-16"
@@ -208,18 +258,7 @@ export default function CoinsSection() {
                           : "oklch(80% 0.01 240)",
                       border: `1px solid ${highlight.border}`,
                     }}
-                    onClick={() =>
-                      addItem({
-                        id: bundle.id,
-                        name: `${bundle.coins.toLocaleString()} Coins`,
-                        price: bundle.price,
-                        inrPrice: bundle.inrPrice,
-                        quantity: 1,
-                        type: "coins",
-                        productId: bundle.productId,
-                        coins: bundle.coins,
-                      })
-                    }
+                    onClick={() => handleBuyNow(bundle)}
                   >
                     Buy Now
                   </Button>

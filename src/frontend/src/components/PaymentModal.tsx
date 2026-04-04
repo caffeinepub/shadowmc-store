@@ -24,7 +24,10 @@ import { useUserInfo } from "../context/UserInfoContext";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCreateCheckoutSession } from "../hooks/useQueries";
-import { saveLocalOrder } from "../utils/localOrders";
+import {
+  saveLocalOrder,
+  updateLocalOrderBackendId,
+} from "../utils/localOrders";
 
 const UPI_ID = "8008366007@upi";
 const INR_PER_USD = 92;
@@ -251,11 +254,30 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
         priceINR: BigInt(i.inrPrice ?? Math.round(i.price * INR_PER_USD)),
       }));
 
+      // Generate a local ID for this order so we can update it after backend responds
+      const localOrderId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
       const submitOrder = async (screenshotBase64: string) => {
+        // Always save to localStorage immediately so purchase history shows right away
+        saveLocalOrder({
+          id: localOrderId,
+          timestamp: Date.now(),
+          items: items.map((i) => ({
+            name: i.name,
+            quantity: i.quantity,
+            priceINR: i.inrPrice ?? Math.round(i.price * 92),
+          })),
+          totalINR: inrTotal,
+          paymentMethod: selectedMethod?.name ?? "UPI",
+          username: username.trim(),
+          email: email.trim(),
+          verified: false,
+        });
+
+        // Then submit to backend and store the returned backend ID
         try {
-          // Use an anonymous actor since submitManualOrder is a public endpoint
           const rawActor = await createRawActorWithConfig();
-          await rawActor.submitManualOrder(
+          const backendIdBigInt = await rawActor.submitManualOrder(
             username.trim(),
             email.trim(),
             backendItems,
@@ -263,28 +285,12 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
             selectedMethod?.name ?? "UPI",
             screenshotBase64,
           );
+          // Store the backend-assigned ID so PurchaseHistory can sync verified status
+          const backendId = Number(backendIdBigInt);
+          updateLocalOrderBackendId(localOrderId, backendId);
         } catch (err) {
-          // silently ignore — order still shown as received to user
+          // silently ignore — order already shown to user
           console.warn("Failed to save order to backend:", err);
-        }
-        // Always save to localStorage so this player can see it in Purchase History
-        try {
-          saveLocalOrder({
-            id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            timestamp: Date.now(),
-            items: items.map((i) => ({
-              name: i.name,
-              quantity: i.quantity,
-              priceINR: i.inrPrice ?? Math.round(i.price * 92),
-            })),
-            totalINR: inrTotal,
-            paymentMethod: selectedMethod?.name ?? "UPI",
-            username: username.trim(),
-            email: email.trim(),
-            verified: false,
-          });
-        } catch {
-          // ignore
         }
       };
 
