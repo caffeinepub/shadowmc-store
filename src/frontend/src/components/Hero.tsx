@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { Check, ChevronRight, Coins, Copy } from "lucide-react";
-import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -64,26 +63,18 @@ export default function Hero({ onNavigate }: HeroProps) {
         }}
       />
 
-      {/* Floating particles */}
+      {/* Floating particles — CSS animation */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {PARTICLES.map((p) => (
-          <motion.div
+          <div
             key={p.id}
-            className="absolute w-1 h-1 rounded-full"
+            className="absolute w-1 h-1 rounded-full animate-float-particle"
             style={{
               background: p.color,
               left: p.left,
               top: p.top,
               opacity: 0.6,
-            }}
-            animate={{
-              y: [-10, 10, -10],
-              opacity: [0.6, 0.2, 0.6],
-            }}
-            transition={{
-              duration: p.duration,
-              repeat: Number.POSITIVE_INFINITY,
-              ease: "easeInOut",
+              animationDuration: `${p.duration}s`,
             }}
           />
         ))}
@@ -92,54 +83,35 @@ export default function Hero({ onNavigate }: HeroProps) {
       {/* Content */}
       <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
         <div className="pt-4">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-          >
-            <img
-              src="/assets/shadow_mc_logo_with_pixelated_castle-019d5e56-2b4d-71ed-9b3e-9ea06d890a57.png"
-              alt="ShadowMC"
-              className="mx-auto mb-6 rounded-full object-cover"
-              style={{ width: "220px", height: "220px" }}
-            />
-          </motion.div>
+          <img
+            src="/assets/shadow_mc_logo_with_pixelated_castle-019d5e56-2b4d-71ed-9b3e-9ea06d890a57.png"
+            alt="ShadowMC"
+            className="mx-auto mb-6 rounded-full object-cover"
+            style={{ width: "220px", height: "220px" }}
+          />
         </div>
 
-        <motion.h1
+        <h1
           className="font-pixel text-glow-cyan mb-4"
           style={{
             fontSize: "clamp(1rem, 3vw, 1.75rem)",
             color: "oklch(78% 0.18 195)",
             lineHeight: 1.8,
           }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
         >
           ShadowMC Store
-        </motion.h1>
+        </h1>
 
-        <motion.p
-          className="text-muted-foreground text-lg mb-8 font-display"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-        >
+        <p className="text-muted-foreground text-lg mb-8 font-display">
           Buy ranks, coins &amp; exclusive perks to enhance your gameplay
-        </motion.p>
+        </p>
 
         {/* Server IP Badge */}
-        <motion.div
-          className="flex items-center justify-center mb-10"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-        >
+        <div className="flex items-center justify-center mb-10">
           <button
             type="button"
             onClick={copyIp}
-            className="group flex items-center gap-3 px-6 py-3 rounded-full border transition-all"
+            className="group flex items-center gap-3 px-6 py-3 rounded-full border transition-all hover:scale-105"
             style={{
               background: "oklch(15% 0.025 250 / 0.8)",
               borderColor: "oklch(78% 0.18 195 / 0.5)",
@@ -168,15 +140,10 @@ export default function Hero({ onNavigate }: HeroProps) {
               {copied ? "Copied!" : "Copy"}
             </span>
           </button>
-        </motion.div>
+        </div>
 
         {/* CTA Buttons */}
-        <motion.div
-          className="flex flex-col sm:flex-row gap-4 justify-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
-        >
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button
             data-ocid="hero.ranks.primary_button"
             size="lg"
@@ -204,19 +171,14 @@ export default function Hero({ onNavigate }: HeroProps) {
           >
             <Coins className="w-4 h-4" /> Get Coins
           </Button>
-        </motion.div>
+        </div>
 
         {/* Stats */}
-        <motion.div
-          className="mt-16 flex flex-wrap justify-center gap-8"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 1 }}
-        >
+        <div className="mt-16 flex flex-wrap justify-center gap-8">
           {[
-            { value: "4", label: "Rank Tiers" },
-            { value: "4", label: "Coin Bundles" },
-            { value: "24/7", label: "Online" },
+            { value: "5", label: "Rank Tiers" },
+            { value: "5", label: "Coin Bundles" },
+            { value: "Free", label: "To Join" },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <div
@@ -230,27 +192,21 @@ export default function Hero({ onNavigate }: HeroProps) {
               </div>
             </div>
           ))}
-        </motion.div>
+        </div>
       </div>
 
-      {/* Scroll indicator */}
-      <motion.div
-        className="absolute bottom-8 left-1/2 -translate-x-1/2"
-        animate={{ y: [0, 8, 0] }}
-        transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY }}
-      >
+      {/* Scroll indicator — CSS bounce */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
         <div
           className="w-6 h-10 border-2 rounded-full flex items-start justify-center p-1"
           style={{ borderColor: "oklch(78% 0.18 195 / 0.4)" }}
         >
-          <motion.div
-            className="w-1 h-2 rounded-full"
+          <div
+            className="w-1 h-2 rounded-full animate-bounce"
             style={{ background: "oklch(78% 0.18 195)" }}
-            animate={{ y: [0, 4, 0] }}
-            transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY }}
           />
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 }

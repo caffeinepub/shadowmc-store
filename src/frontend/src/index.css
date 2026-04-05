@@ -160,3 +160,51 @@
     background-size: 40px 40px;
   }
 }
+
+/* CSS keyframes for replacing motion/react animations */
+@keyframes float-particle {
+  0%,
+  100% {
+    transform: translateY(-10px);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(10px);
+    opacity: 0.2;
+  }
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 40px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-float-particle {
+  animation: float-particle var(--duration, 3s) ease-in-out infinite;
+}
+
+@keyframes popupEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}

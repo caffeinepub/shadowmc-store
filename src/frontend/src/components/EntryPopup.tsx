@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { motion } from "motion/react";
 import { useState } from "react";
 import { useUserInfo } from "../context/UserInfoContext";
 
@@ -57,12 +56,10 @@ export default function EntryPopup() {
       }}
       onKeyDown={handleKeyDown}
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.92, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
+      <div
         className="w-full max-w-md rounded-2xl overflow-hidden"
         style={{
+          animation: "popupEnter 0.4s ease-out",
           background: "oklch(12% 0.025 250)",
           border: "1px solid oklch(28% 0.06 250)",
           boxShadow:
@@ -262,7 +259,7 @@ export default function EntryPopup() {
             </a>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

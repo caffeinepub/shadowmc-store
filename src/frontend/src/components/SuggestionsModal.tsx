@@ -5,8 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ShoppingCart, Sparkles, X } from "lucide-react";
-import { motion } from "motion/react";
+import { ShoppingCart, Sparkles } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { useCurrency } from "../context/CurrencyContext";
 
@@ -111,28 +110,21 @@ function getSuggestions(
   addedItemType: "rank" | "coins",
 ): SuggestionItem[] {
   if (addedItemType === "rank") {
-    // Suggest coin bundles when buying a rank
     return [
-      { ...ALL_COINS[1], badge: undefined }, // 1,000 coins
-      { ...ALL_COINS[2], badge: "Most Popular" }, // 2,500 coins
+      { ...ALL_COINS[1], badge: undefined },
+      { ...ALL_COINS[2], badge: "Most Popular" },
     ];
   }
-  // Buying coins — suggest a rank + a bigger coin bundle
   const suggestions: SuggestionItem[] = [];
-
-  // Always suggest VIP rank as an entry-level upgrade
   if (addedItemId !== "rank-1") {
     suggestions.push({ ...ALL_RANKS[0], badge: "Great Combo" });
   }
-
-  // Suggest a bigger coin bundle if not already buying the biggest
   const currentBundle = ALL_COINS.find((c) => c.id === addedItemId);
   const currentIndex = currentBundle ? ALL_COINS.indexOf(currentBundle) : 0;
   const nextBundle = ALL_COINS[currentIndex + 1];
   if (nextBundle) {
     suggestions.push({ ...nextBundle, badge: "More Value" });
   }
-
   return suggestions.slice(0, 2);
 }
 
@@ -250,7 +242,7 @@ export default function SuggestionsModal({
                 const inCart = cartItemIds.has(suggestion.id);
 
                 return (
-                  <motion.div
+                  <div
                     key={suggestion.id}
                     data-ocid={`suggestions.item.${index + 1}`}
                     className="relative rounded-xl border flex flex-col overflow-hidden"
@@ -261,9 +253,6 @@ export default function SuggestionsModal({
                       ),
                       background: "oklch(16% 0.025 250)",
                     }}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.07 }}
                   >
                     {suggestion.badge && (
                       <div
@@ -314,7 +303,7 @@ export default function SuggestionsModal({
                         {inCart ? "✓ In Cart" : "+ Add to Cart"}
                       </Button>
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>

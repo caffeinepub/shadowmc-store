@@ -18,11 +18,10 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
-import { createRawActorWithConfig } from "../config";
 import type { ManualOrderLite } from "../declarations/backend.did.d.ts";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { createRawActorWithConfig } from "../rawActor";
 
 type Order = ManualOrderLite;
 
@@ -53,7 +52,6 @@ export default function AdminPanel() {
     setIsLoading(true);
     try {
       const rawActor = await createRawActorWithConfig();
-      // Use the lite version -- no screenshots in the list response
       const result = (await rawActor.getManualOrdersLite()) as Order[];
       const sorted = [...result].sort(
         (a, b) => Number(b.timestamp) - Number(a.timestamp),
@@ -170,10 +168,7 @@ export default function AdminPanel() {
         className="min-h-screen flex items-center justify-center p-4"
         style={{ background: "oklch(8% 0.02 250)" }}
       >
-        <motion.div
-          initial={{ opacity: 0, y: 24, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
+        <div
           className="w-full max-w-sm rounded-2xl p-8"
           style={{
             background: "oklch(12% 0.025 250)",
@@ -239,7 +234,7 @@ export default function AdminPanel() {
               Login failed. Please try again.
             </p>
           )}
-        </motion.div>
+        </div>
       </div>
     );
   }
@@ -320,11 +315,8 @@ export default function AdminPanel() {
               bg: "oklch(18% 0.04 60)",
             },
           ].map((stat) => (
-            <motion.div
+            <div
               key={stat.label}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
               className="rounded-xl p-5 flex items-center gap-4"
               style={{
                 background: "oklch(12% 0.025 250)",
@@ -348,7 +340,7 @@ export default function AdminPanel() {
                   {stat.value}
                 </p>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
 
@@ -374,8 +366,8 @@ export default function AdminPanel() {
               className="text-xs mt-0.5"
               style={{ color: "oklch(48% 0.04 250)" }}
             >
-              Newest orders first — use the buttons to verify, block, or delete
-              orders
+              Newest orders first \u2014 use the buttons to verify, block, or
+              delete orders
             </p>
           </div>
 
@@ -540,7 +532,7 @@ export default function AdminPanel() {
                               className="text-xs"
                               style={{ color: "oklch(38% 0.04 250)" }}
                             >
-                              —
+                              \u2014
                             </span>
                           )}
                         </TableCell>
@@ -554,7 +546,7 @@ export default function AdminPanel() {
                                 border: "1px solid oklch(45% 0.15 30 / 0.35)",
                               }}
                             >
-                              ⛔ Blocked
+                              \u26d4 Blocked
                             </span>
                           ) : order.verified ? (
                             <span
@@ -580,10 +572,8 @@ export default function AdminPanel() {
                             </span>
                           )}
                         </TableCell>
-                        {/* Actions column */}
                         <TableCell>
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {/* Mark Verified -- only show if not yet verified or blocked */}
                             {!order.verified && !order.blocked && (
                               <Button
                                 size="sm"
@@ -604,7 +594,6 @@ export default function AdminPanel() {
                                 Verify
                               </Button>
                             )}
-                            {/* Block -- only show if not already blocked */}
                             {!order.blocked && (
                               <Button
                                 size="sm"
@@ -625,7 +614,6 @@ export default function AdminPanel() {
                                 Block
                               </Button>
                             )}
-                            {/* Delete -- always available */}
                             <Button
                               size="sm"
                               onClick={() => handleDeleteOrder(order)}
@@ -657,58 +645,55 @@ export default function AdminPanel() {
       </main>
 
       {/* Fullscreen screenshot preview */}
-      <AnimatePresence>
-        {previewImage && (
-          <motion.div
-            key="preview-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: "oklch(0% 0 0 / 0.9)" }}
-            onClick={() => setPreviewImage(null)}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{
+            background: "oklch(0% 0 0 / 0.9)",
+            animation: "fadeIn 0.2s ease",
+          }}
+          onClick={() => setPreviewImage(null)}
+          onKeyDown={(e) => e.key === "Escape" && setPreviewImage(null)}
+          aria-modal="true"
+          tabIndex={-1}
+        >
+          <div
+            className="relative max-w-2xl w-full"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="presentation"
           >
-            <motion.div
-              initial={{ scale: 0.88, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.88, opacity: 0 }}
-              transition={{ duration: 0.22, ease: "easeOut" }}
-              className="relative max-w-2xl w-full"
-              onClick={(e) => e.stopPropagation()}
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110"
+              style={{
+                background: "oklch(22% 0.04 250)",
+                border: "1px solid oklch(35% 0.05 250)",
+                color: "oklch(70% 0.05 250)",
+              }}
             >
-              <button
-                type="button"
-                onClick={() => setPreviewImage(null)}
-                className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110"
-                style={{
-                  background: "oklch(22% 0.04 250)",
-                  border: "1px solid oklch(35% 0.05 250)",
-                  color: "oklch(70% 0.05 250)",
-                }}
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <img
-                src={previewImage}
-                alt="Payment screenshot full view"
-                className="w-full rounded-xl"
-                style={{
-                  maxHeight: "80vh",
-                  objectFit: "contain",
-                  boxShadow: "0 24px 80px oklch(0% 0 0 / 0.7)",
-                }}
-              />
-              <p
-                className="text-center mt-3 text-xs"
-                style={{ color: "oklch(45% 0.04 250)" }}
-              >
-                Click outside or the \u2715 to close
-              </p>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <X className="w-4 h-4" />
+            </button>
+            <img
+              src={previewImage}
+              alt="Payment screenshot full view"
+              className="w-full rounded-xl"
+              style={{
+                maxHeight: "80vh",
+                objectFit: "contain",
+                boxShadow: "0 24px 80px oklch(0% 0 0 / 0.7)",
+              }}
+            />
+            <p
+              className="text-center mt-3 text-xs"
+              style={{ color: "oklch(45% 0.04 250)" }}
+            >
+              Click outside or the \u00d7 to close
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,8 +5,7 @@ import {
   ExternalBlob,
 } from "./backend";
 import { StorageClient } from "./utils/StorageClient";
-import { Actor, HttpAgent, type ActorSubclass } from "@icp-sdk/core/agent";
-import { idlFactory, type _SERVICE } from "./declarations/backend.did";
+import { HttpAgent } from "@icp-sdk/core/agent";
 
 const DEFAULT_STORAGE_GATEWAY_URL = "https://blob.caffeine.ai";
 const DEFAULT_BUCKET_NAME = "default-bucket";
@@ -177,25 +176,4 @@ export async function createActorWithConfig(
     downloadFile,
     actorOptions,
   );
-}
-
-export async function createRawActorWithConfig(
-  identity?: unknown,
-): Promise<ActorSubclass<_SERVICE>> {
-  const config = await loadConfig();
-  const agentOpts: { host: string; identity?: unknown } = {
-    host: config.backend_host ?? "https://ic0.app",
-  };
-  if (identity) {
-    agentOpts.identity = identity;
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const agent = new HttpAgent(agentOpts as any);
-  if (config.backend_host?.includes("localhost")) {
-    await agent.fetchRootKey().catch(() => {});
-  }
-  return Actor.createActor<_SERVICE>(idlFactory, {
-    agent,
-    canisterId: config.backend_canister_id,
-  });
 }

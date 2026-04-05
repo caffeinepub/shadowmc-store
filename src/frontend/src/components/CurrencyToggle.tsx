@@ -1,14 +1,14 @@
-import { motion } from "motion/react";
 import { useCurrency } from "../context/CurrencyContext";
 
 export default function CurrencyToggle() {
   const { currency, toggleCurrency } = useCurrency();
 
   return (
-    <motion.button
+    <button
+      type="button"
       data-ocid="currency.toggle"
       onClick={toggleCurrency}
-      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold border transition-all"
+      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold border transition-all hover:scale-105 active:scale-95"
       style={{
         background:
           currency === "INR"
@@ -21,12 +21,10 @@ export default function CurrencyToggle() {
         color:
           currency === "INR" ? "oklch(72% 0.2 145)" : "oklch(75% 0.01 240)",
       }}
-      whileHover={{ scale: 1.04 }}
-      whileTap={{ scale: 0.97 }}
     >
       <span>{currency === "USD" ? "🇺🇸" : "🇮🇳"}</span>
       <span>{currency === "USD" ? "USD" : "INR"}</span>
       <span className="text-xs opacity-60">↔</span>
-    </motion.button>
+    </button>
   );
 }

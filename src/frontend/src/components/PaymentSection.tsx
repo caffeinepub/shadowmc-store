@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { Check, Copy } from "lucide-react";
-import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -32,13 +31,7 @@ export default function PaymentSection() {
       style={{ background: "oklch(11% 0.02 250)" }}
     >
       <div className="container mx-auto max-w-4xl">
-        <motion.div
-          className="text-center mb-12"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
+        <div className="text-center mb-12">
           <h2
             className="font-pixel mb-4"
             style={{
@@ -51,25 +44,14 @@ export default function PaymentSection() {
           <p className="text-muted-foreground text-lg max-w-xl mx-auto font-display">
             All major Indian payment apps accepted. Fast &amp; secure.
           </p>
-        </motion.div>
+        </div>
 
         {/* Payment method pills */}
-        <motion.div
-          className="flex flex-wrap justify-center gap-3 mb-10"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          {PAYMENT_METHODS.map((method, i) => (
-            <motion.div
+        <div className="flex flex-wrap justify-center gap-3 mb-10">
+          {PAYMENT_METHODS.map((method) => (
+            <div
               key={method.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.07 }}
-              whileHover={{ scale: 1.05, y: -2 }}
-              className="flex items-center gap-2.5 px-5 py-3 rounded-xl border font-semibold text-sm"
+              className="flex items-center gap-2.5 px-5 py-3 rounded-xl border font-semibold text-sm transition-all duration-200 hover:scale-105 hover:-translate-y-0.5"
               style={{
                 background: "oklch(14% 0.025 250)",
                 borderColor: `${method.color}40`,
@@ -79,17 +61,13 @@ export default function PaymentSection() {
             >
               <span className="text-lg">{method.emoji}</span>
               {method.name}
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
 
         {/* UPI ID box */}
-        <motion.div
+        <div
           className="max-w-lg mx-auto rounded-2xl p-6 text-center"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.2 }}
           style={{
             background: "oklch(14% 0.025 250)",
             border: "1px solid oklch(50% 0.15 195 / 0.4)",
@@ -142,7 +120,7 @@ export default function PaymentSection() {
             UPI app. Then proceed to checkout and submit your Minecraft
             username.
           </p>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

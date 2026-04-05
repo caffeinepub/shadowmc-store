@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
-import { motion } from "motion/react";
+import { Plus, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
 import { useCurrency } from "../context/CurrencyContext";
@@ -61,6 +60,7 @@ export default function CoinsSection() {
   const { addItem, openCart } = useCart();
   const { data: storeInfo } = useStoreInfo();
   const { formatPriceWithINR } = useCurrency();
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [suggestionState, setSuggestionState] = useState<{
     open: boolean;
     itemId: string;
@@ -107,6 +107,28 @@ export default function CoinsSection() {
     });
   };
 
+  const handleAddToCart = (
+    bundle: (typeof FALLBACK_BUNDLES)[0] & {
+      id: string;
+      productId: bigint;
+      coins: number;
+      price: number;
+      inrPrice: number;
+    },
+  ) => {
+    addItem({
+      id: bundle.id,
+      name: `${bundle.coins.toLocaleString()} Coins`,
+      price: bundle.price,
+      inrPrice: bundle.inrPrice,
+      quantity: 1,
+      type: "coins",
+      productId: bundle.productId,
+      coins: bundle.coins,
+    });
+    openCart();
+  };
+
   const handleSuggestionsClose = () => {
     setSuggestionState((prev) => ({ ...prev, open: false }));
     openCart();
@@ -127,13 +149,7 @@ export default function CoinsSection() {
       />
 
       <div className="container mx-auto max-w-6xl">
-        <motion.div
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
+        <div className="text-center mb-16">
           <h2
             className="font-pixel mb-4"
             style={{
@@ -147,7 +163,7 @@ export default function CoinsSection() {
             Spend coins on cosmetics, items, and in-game perks. More coins =
             more fun.
           </p>
-        </motion.div>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
           {bundles.map((bundle, index) => {
@@ -158,40 +174,40 @@ export default function CoinsSection() {
                   border: "oklch(78% 0.18 195 / 0.6)",
                   text: "oklch(78% 0.18 195)",
                   bg: "oklch(78% 0.18 195 / 0.1)",
-                  glow: "0 0 24px oklch(78% 0.18 195 / 0.4)",
+                  glow: "0 0 28px oklch(78% 0.18 195 / 0.4)",
                 }
               : isBestValue
                 ? {
                     border: "oklch(78% 0.22 70 / 0.6)",
                     text: "oklch(78% 0.22 70)",
                     bg: "oklch(78% 0.22 70 / 0.1)",
-                    glow: "0 0 24px oklch(78% 0.22 70 / 0.4)",
+                    glow: "0 0 28px oklch(78% 0.22 70 / 0.4)",
                   }
                 : {
                     border: "oklch(25% 0.04 250)",
                     text: "oklch(80% 0.01 240)",
                     bg: "oklch(18% 0.03 250)",
-                    glow: "none",
+                    glow: "0 0 16px oklch(78% 0.22 70 / 0.2)",
                   };
+            const isHovered = hoveredId === bundle.id;
 
             return (
-              <motion.div
+              <div
                 key={bundle.id}
                 data-ocid={`coins.item.${index + 1}`}
-                className="relative rounded-xl border overflow-hidden flex flex-col"
+                className="relative rounded-xl border overflow-hidden flex flex-col transition-all duration-200"
                 style={{
                   borderColor: highlight.border,
                   background: "oklch(14% 0.025 250)",
+                  transform: isHovered ? "translateY(-4px)" : "none",
+                  boxShadow: isHovered ? highlight.glow : "none",
                 }}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                whileHover={{ y: -4, boxShadow: highlight.glow }}
+                onMouseEnter={() => setHoveredId(bundle.id)}
+                onMouseLeave={() => setHoveredId(null)}
               >
                 {bundle.label && (
                   <div
-                    className="absolute top-0 left-0 right-0 text-center py-1 text-xs font-pixel"
+                    className="text-center py-1.5 text-xs font-pixel"
                     style={{ background: highlight.bg, color: highlight.text }}
                   >
                     {isPopular ? "★ " : "💎 "}
@@ -199,54 +215,63 @@ export default function CoinsSection() {
                   </div>
                 )}
 
-                <div
-                  className="p-6 flex flex-col flex-1"
-                  style={{ paddingTop: bundle.label ? "2.5rem" : "1.5rem" }}
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="text-3xl">🪙</div>
-                    <div>
-                      <div
-                        className="font-pixel text-lg"
-                        style={{ color: "oklch(78% 0.22 70)" }}
-                      >
-                        {bundle.coins.toLocaleString()}
-                      </div>
-                      <div className="text-muted-foreground text-xs">Coins</div>
-                    </div>
+                <div className="p-5 flex flex-col flex-1">
+                  {/* Coin count — prominent */}
+                  <div
+                    className="flex flex-col items-center justify-center py-4 mb-3 rounded-lg"
+                    style={{
+                      background: "oklch(78% 0.22 70 / 0.06)",
+                      border: "1px solid oklch(78% 0.22 70 / 0.15)",
+                    }}
+                  >
+                    <span className="text-4xl mb-1">🪙</span>
+                    <span
+                      className="font-pixel text-xl leading-none"
+                      style={{ color: "oklch(78% 0.22 70)" }}
+                    >
+                      {bundle.coins.toLocaleString()}
+                    </span>
+                    <span
+                      className="text-xs mt-0.5"
+                      style={{ color: "oklch(55% 0.08 70)" }}
+                    >
+                      coins
+                    </span>
                   </div>
 
-                  {bundle.bonus && (
-                    <div className="flex items-center gap-1 mb-3">
-                      <Sparkles
-                        className="w-3 h-3"
-                        style={{ color: "oklch(78% 0.22 70)" }}
-                      />
+                  {/* Bonus badge */}
+                  {bundle.bonus ? (
+                    <div className="flex justify-center mb-3">
                       <span
-                        className="text-xs font-medium"
-                        style={{ color: "oklch(78% 0.22 70)" }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
+                        style={{
+                          background: "oklch(78% 0.22 70 / 0.12)",
+                          border: "1px solid oklch(78% 0.22 70 / 0.3)",
+                          color: "oklch(78% 0.22 70)",
+                        }}
                       >
+                        <Sparkles className="w-3 h-3" />
                         {bundle.bonus}
                       </span>
                     </div>
+                  ) : (
+                    <div className="mb-3 h-6" />
                   )}
 
-                  <div className="mb-6 flex-1">
-                    <motion.span
-                      key={formatPriceWithINR(bundle.price, bundle.inrPrice)}
-                      className="font-display text-3xl font-bold"
+                  {/* Price */}
+                  <div className="text-center mb-5">
+                    <span
+                      className="font-display text-2xl font-bold"
                       style={{ color: "white" }}
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2 }}
                     >
                       {formatPriceWithINR(bundle.price, bundle.inrPrice)}
-                    </motion.span>
+                    </span>
                   </div>
 
+                  {/* Buy Now */}
                   <Button
                     data-ocid={`coins.buy.button.${index + 1}`}
-                    className="w-full font-semibold transition-all"
+                    className="w-full font-semibold transition-all mb-2 hover:brightness-110"
                     style={{
                       background:
                         isPopular || isBestValue
@@ -262,8 +287,36 @@ export default function CoinsSection() {
                   >
                     Buy Now
                   </Button>
+
+                  {/* Add to Cart — quick add, no suggestions */}
+                  <button
+                    type="button"
+                    data-ocid={`coins.add_to_cart.button.${index + 1}`}
+                    className="w-full text-xs rounded-md px-3 py-1.5 border flex items-center justify-center gap-1.5 transition-all duration-200"
+                    style={{
+                      background: "transparent",
+                      color: "oklch(55% 0.06 250)",
+                      borderColor: "oklch(30% 0.04 250)",
+                    }}
+                    onMouseEnter={(e) => {
+                      const el = e.currentTarget;
+                      el.style.color = highlight.text;
+                      el.style.borderColor = highlight.border;
+                      el.style.background = highlight.bg;
+                    }}
+                    onMouseLeave={(e) => {
+                      const el = e.currentTarget;
+                      el.style.color = "oklch(55% 0.06 250)";
+                      el.style.borderColor = "oklch(30% 0.04 250)";
+                      el.style.background = "transparent";
+                    }}
+                    onClick={() => handleAddToCart(bundle)}
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add to Cart
+                  </button>
                 </div>
-              </motion.div>
+              </div>
             );
           })}
         </div>

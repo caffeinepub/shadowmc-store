@@ -8,12 +8,11 @@ import {
   ShieldCheck,
   Trash2,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { Purchase } from "../backend";
-import { createRawActorWithConfig } from "../config";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCallerPurchases } from "../hooks/useQueries";
+import { createRawActorWithConfig } from "../rawActor";
 import {
   LOCAL_ORDERS_KEY,
   type LocalOrder,
@@ -37,7 +36,6 @@ export default function PurchaseHistory() {
   const { data: stripePurchases, isLoading } = useCallerPurchases();
   const [localOrders, setLocalOrders] = useState<LocalOrder[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
-  // Track which order IDs are in the process of being deleted (for animation)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   // Load local manual orders and sync verified/blocked status from backend
@@ -54,7 +52,6 @@ export default function PurchaseHistory() {
       setIsSyncing(true);
       try {
         const rawActor = await createRawActorWithConfig();
-        // Use Lite version -- no screenshots, small payload
         const backendOrders = (await rawActor.getManualOrdersLite()) as Array<{
           id: bigint;
           verified: boolean;
@@ -104,9 +101,7 @@ export default function PurchaseHistory() {
   }, []);
 
   const handleDeleteOrder = (orderId: string) => {
-    // Mark as deleting to trigger exit animation
     setDeletingIds((prev) => new Set(prev).add(orderId));
-    // After animation (300ms), actually remove from state and storage
     setTimeout(() => {
       deleteLocalOrder(orderId);
       setLocalOrders((prev) => prev.filter((o) => o.id !== orderId));
@@ -174,12 +169,7 @@ export default function PurchaseHistory() {
       style={{ background: "oklch(12% 0.02 250 / 0.85)" }}
     >
       <div className="container mx-auto max-w-3xl">
-        <motion.div
-          className="text-center mb-12"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-        >
+        <div className="text-center mb-12">
           <h2
             className="font-pixel mb-4"
             style={{
@@ -201,7 +191,7 @@ export default function PurchaseHistory() {
               </span>
             )}
           </p>
-        </motion.div>
+        </div>
 
         {/* Manual / UPI orders */}
         {hasLocalOrders && (
@@ -213,138 +203,104 @@ export default function PurchaseHistory() {
               UPI / Manual Payment Orders
             </p>
             <div className="space-y-3 overflow-hidden">
-              <AnimatePresence initial={false}>
-                {[...localOrders]
-                  .sort((a, b) => b.timestamp - a.timestamp)
-                  .map((order, index) => {
-                    const isDeleting = deletingIds.has(order.id);
-                    return (
-                      <motion.div
-                        key={order.id}
-                        data-ocid={`history.local.item.${index + 1}`}
-                        layout
-                        initial={{ opacity: 0, x: -40, scale: 0.97 }}
-                        animate={
-                          isDeleting
-                            ? {
-                                x: 120,
-                                opacity: 0,
-                                scale: 0.93,
-                                filter: "blur(2px)",
-                              }
-                            : {
-                                opacity: 1,
-                                x: 0,
-                                scale: 1,
-                                filter: "blur(0px)",
-                              }
-                        }
-                        exit={{
-                          opacity: 0,
-                          x: 120,
-                          scale: 0.93,
-                          height: 0,
-                          marginBottom: 0,
-                        }}
-                        transition={{
-                          duration: 0.3,
-                          ease: [0.32, 0, 0.67, 0],
-                          layout: { duration: 0.25, ease: "easeOut" },
-                        }}
-                        className="flex items-start gap-4 p-4 rounded-xl border relative overflow-hidden"
+              {[...localOrders]
+                .sort((a, b) => b.timestamp - a.timestamp)
+                .map((order, index) => {
+                  const isDeleting = deletingIds.has(order.id);
+                  return (
+                    <div
+                      key={order.id}
+                      data-ocid={`history.local.item.${index + 1}`}
+                      className="flex items-start gap-4 p-4 rounded-xl border relative overflow-hidden"
+                      style={{
+                        borderColor: isDeleting
+                          ? "oklch(55% 0.18 25 / 0.4)"
+                          : "oklch(25% 0.04 250)",
+                        background: isDeleting
+                          ? "oklch(16% 0.04 25)"
+                          : "oklch(14% 0.025 250)",
+                        transition:
+                          "background 0.15s, border-color 0.15s, transform 0.3s ease, opacity 0.3s ease",
+                        transform: isDeleting ? "translateX(120px)" : "none",
+                        opacity: isDeleting ? 0 : 1,
+                      }}
+                    >
+                      {isDeleting && (
+                        <div
+                          className="absolute inset-0 rounded-xl pointer-events-none"
+                          style={{
+                            background:
+                              "linear-gradient(to right, transparent, oklch(55% 0.22 25 / 0.12))",
+                          }}
+                        />
+                      )}
+
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
                         style={{
-                          borderColor: isDeleting
-                            ? "oklch(55% 0.18 25 / 0.4)"
-                            : "oklch(25% 0.04 250)",
-                          background: isDeleting
-                            ? "oklch(16% 0.04 25)"
-                            : "oklch(14% 0.025 250)",
-                          transition: "background 0.15s, border-color 0.15s",
+                          background: "oklch(78% 0.18 195 / 0.1)",
+                          border: "1px solid oklch(78% 0.18 195 / 0.3)",
                         }}
                       >
-                        {/* Red swipe overlay that appears on delete */}
-                        {isDeleting && (
-                          <motion.div
-                            className="absolute inset-0 rounded-xl pointer-events-none"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            style={{
-                              background:
-                                "linear-gradient(to right, transparent, oklch(55% 0.22 25 / 0.12))",
-                            }}
-                          />
-                        )}
-
-                        <div
-                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                          style={{
-                            background: "oklch(78% 0.18 195 / 0.1)",
-                            border: "1px solid oklch(78% 0.18 195 / 0.3)",
-                          }}
+                        <Package
+                          className="w-5 h-5"
+                          style={{ color: "oklch(78% 0.18 195)" }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground text-sm mb-0.5">
+                          {order.items.map((i) => i.name).join(", ")}
+                        </p>
+                        <p
+                          className="text-xs"
+                          style={{ color: "oklch(55% 0.05 250)" }}
                         >
-                          <Package
-                            className="w-5 h-5"
-                            style={{ color: "oklch(78% 0.18 195)" }}
-                          />
+                          Player:{" "}
+                          <span style={{ color: "oklch(78% 0.18 195)" }}>
+                            {order.username}
+                          </span>
+                        </p>
+                        <div
+                          className="flex items-center gap-1 text-xs mt-0.5"
+                          style={{ color: "oklch(50% 0.04 250)" }}
+                        >
+                          <Clock className="w-3 h-3" />
+                          {formatDate(order.timestamp)} &middot;{" "}
+                          {order.paymentMethod}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground text-sm mb-0.5">
-                            {order.items.map((i) => i.name).join(", ")}
-                          </p>
-                          <p
-                            className="text-xs"
-                            style={{ color: "oklch(55% 0.05 250)" }}
-                          >
-                            Player:{" "}
-                            <span style={{ color: "oklch(78% 0.18 195)" }}>
-                              {order.username}
-                            </span>
-                          </p>
-                          <div
-                            className="flex items-center gap-1 text-xs mt-0.5"
-                            style={{ color: "oklch(50% 0.04 250)" }}
-                          >
-                            <Clock className="w-3 h-3" />
-                            {formatDate(order.timestamp)} &middot;{" "}
-                            {order.paymentMethod}
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
-                          <p className="font-semibold text-foreground text-sm">
-                            \u20b9{order.totalINR.toLocaleString("en-IN")}
-                          </p>
-                          {getStatusBadge(order)}
-                          {/* Delete button */}
-                          <motion.button
-                            type="button"
-                            data-ocid={`history.local.delete.${index + 1}`}
-                            onClick={() =>
-                              !isDeleting && handleDeleteOrder(order.id)
-                            }
-                            disabled={isDeleting}
-                            whileHover={{ scale: 1.08 }}
-                            whileTap={{ scale: 0.93 }}
-                            className="flex items-center gap-1 text-xs mt-1 px-2 py-1 rounded-lg transition-colors"
-                            style={{
-                              color: isDeleting
-                                ? "oklch(65% 0.22 25)"
-                                : "oklch(55% 0.18 25)",
-                              background: isDeleting
-                                ? "oklch(22% 0.05 25)"
-                                : "oklch(18% 0.03 25 / 0)",
-                              border: "1px solid oklch(45% 0.18 25 / 0.25)",
-                              cursor: isDeleting ? "default" : "pointer",
-                            }}
-                            title="Remove from history"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            {isDeleting ? "Removing..." : "Delete"}
-                          </motion.button>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-              </AnimatePresence>
+                      </div>
+                      <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
+                        <p className="font-semibold text-foreground text-sm">
+                          ₹{order.totalINR.toLocaleString("en-IN")}
+                        </p>
+                        {getStatusBadge(order)}
+                        <button
+                          type="button"
+                          data-ocid={`history.local.delete.${index + 1}`}
+                          onClick={() =>
+                            !isDeleting && handleDeleteOrder(order.id)
+                          }
+                          disabled={isDeleting}
+                          className="flex items-center gap-1 text-xs mt-1 px-2 py-1 rounded-lg transition-colors hover:brightness-125"
+                          style={{
+                            color: isDeleting
+                              ? "oklch(65% 0.22 25)"
+                              : "oklch(55% 0.18 25)",
+                            background: isDeleting
+                              ? "oklch(22% 0.05 25)"
+                              : "oklch(18% 0.03 25 / 0)",
+                            border: "1px solid oklch(45% 0.18 25 / 0.25)",
+                            cursor: isDeleting ? "default" : "pointer",
+                          }}
+                          title="Remove from history"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          {isDeleting ? "Removing..." : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         )}
@@ -374,7 +330,7 @@ export default function PurchaseHistory() {
               <div className="space-y-3">
                 {(stripePurchases as Purchase[]).map(
                   (purchase: Purchase, index: number) => (
-                    <motion.div
+                    <div
                       key={String(purchase.id)}
                       data-ocid={`history.stripe.item.${index + 1}`}
                       className="flex items-center gap-4 p-4 rounded-xl border"
@@ -382,10 +338,6 @@ export default function PurchaseHistory() {
                         borderColor: "oklch(25% 0.04 250)",
                         background: "oklch(14% 0.025 250)",
                       }}
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.05 }}
                     >
                       <div
                         className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -421,7 +373,7 @@ export default function PurchaseHistory() {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-foreground">
-                          \u20b9
+                          ₹
                           {Math.round(
                             (Number(purchase.priceCents) / 100) * INR_PER_USD,
                           ).toLocaleString("en-IN")}
@@ -430,7 +382,7 @@ export default function PurchaseHistory() {
                           Completed
                         </Badge>
                       </div>
-                    </motion.div>
+                    </div>
                   ),
                 )}
               </div>
@@ -520,6 +472,36 @@ export default function PurchaseHistory() {
             </Button>
           </div>
         )}
+
+        {/* Welcome / About box */}
+        <div
+          className="mt-16 rounded-2xl p-8 text-center"
+          style={{
+            background: "oklch(14% 0.025 250)",
+            border: "1px solid oklch(78% 0.18 195 / 0.2)",
+            boxShadow: "0 0 40px oklch(78% 0.18 195 / 0.05)",
+          }}
+        >
+          <h3
+            className="font-pixel mb-3"
+            style={{
+              color: "oklch(78% 0.18 195)",
+              fontSize: "clamp(0.75rem, 2vw, 1rem)",
+            }}
+          >
+            Welcome to Shadow MC Store
+          </h3>
+          <p className="text-muted-foreground mb-2">
+            Shadow MC is a free public server with{" "}
+            <span style={{ color: "oklch(78% 0.22 70)" }}>Survival</span> and{" "}
+            <span style={{ color: "oklch(70% 0.22 305)" }}>Lifesteal</span>{" "}
+            modes.
+          </p>
+          <p className="text-muted-foreground text-sm">
+            From Ranks and Coins, you can enhance your game experience and stand
+            out from the rest.
+          </p>
+        </div>
       </div>
     </section>
   );

@@ -3,10 +3,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import CartDrawer from "./components/CartDrawer";
+import CartSummaryBar from "./components/CartSummaryBar";
 import CoinsSection from "./components/CoinsSection";
 import EntryPopup from "./components/EntryPopup";
 import Footer from "./components/Footer";
 import Hero from "./components/Hero";
+import InformationSection from "./components/InformationSection";
 import LaunchBanner from "./components/LaunchBanner";
 import Navbar from "./components/Navbar";
 import PaymentSection from "./components/PaymentSection";
@@ -38,7 +40,7 @@ function StoreApp() {
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get("checkout");
     if (checkout === "success") {
-      toast.success("🎉 Purchase successful! Check your purchase history.");
+      toast.success("Purchase successful! Check your purchase history.");
       window.history.replaceState({}, "", window.location.pathname);
     } else if (checkout === "cancelled") {
       toast.error("Checkout was cancelled.");
@@ -59,7 +61,14 @@ function StoreApp() {
   };
 
   useEffect(() => {
-    const sections = ["home", "ranks", "coins", "payment", "history"];
+    const sections = [
+      "home",
+      "ranks",
+      "coins",
+      "payment",
+      "history",
+      "information",
+    ];
     const handleScroll = () => {
       const scrollY = window.scrollY;
       if (scrollY < 200) {
@@ -95,7 +104,7 @@ function StoreApp() {
         backgroundAttachment: "fixed",
       }}
     >
-      {/* Dark overlay to keep text readable */}
+      {/* Dark overlay */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
@@ -105,7 +114,7 @@ function StoreApp() {
       />
 
       <div className="relative z-10">
-        {/* Entry popup — shown before store access */}
+        {/* Entry popup — shown on every new browser session */}
         {!userInfo.hasEnteredStore && <EntryPopup />}
 
         <LaunchBanner
@@ -128,9 +137,12 @@ function StoreApp() {
           <CoinsSection />
           <PaymentSection />
           <PurchaseHistory />
+          <InformationSection />
         </main>
         <Footer />
         <CartDrawer />
+        {/* Sticky cart summary bar — shown at bottom when items are in cart */}
+        <CartSummaryBar />
         <Toaster
           theme="dark"
           toastOptions={{
@@ -147,7 +159,6 @@ function StoreApp() {
 }
 
 export default function App() {
-  // Admin panel — Internet Identity login
   if (isAdminPage()) {
     return (
       <QueryClientProvider client={queryClient}>

@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Check, Crown, Shield, Star, Youtube, Zap } from "lucide-react";
-import { motion } from "motion/react";
+import { Check, Crown, Plus, Shield, Star, Youtube, Zap } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
 import { useCurrency } from "../context/CurrencyContext";
@@ -139,6 +138,8 @@ export default function RanksSection() {
   const { addItem, openCart } = useCart();
   const { data: storeInfo } = useStoreInfo();
   const { formatPrice } = useCurrency();
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [priceKey, setPriceKey] = useState(0);
   const [suggestionState, setSuggestionState] = useState<{
     open: boolean;
     itemId: string;
@@ -148,6 +149,10 @@ export default function RanksSection() {
     itemId: "",
     itemName: "",
   });
+
+  // keep priceKey stable — no motion needed
+  void priceKey;
+  void setPriceKey;
 
   const ranks = storeInfo?.ranks?.length
     ? [
@@ -159,7 +164,6 @@ export default function RanksSection() {
           tier: r.tier.toLowerCase(),
           price: Number(r.product.priceCents) / 100,
         })),
-        // Always append the Media rank locally
         FALLBACK_RANKS[4],
       ]
     : FALLBACK_RANKS;
@@ -188,6 +192,26 @@ export default function RanksSection() {
     });
   };
 
+  const handleAddToCart = (
+    rank: (typeof FALLBACK_RANKS)[0] & {
+      id: string;
+      productId: bigint;
+      price: number;
+    },
+  ) => {
+    addItem({
+      id: rank.id,
+      name: `${rank.name} Rank`,
+      price: rank.price / INR_PER_USD,
+      inrPrice: rank.price,
+      quantity: 1,
+      type: "rank",
+      productId: rank.productId,
+      tier: rank.tier,
+    });
+    openCart();
+  };
+
   const handleSuggestionsClose = () => {
     setSuggestionState((prev) => ({ ...prev, open: false }));
     openCart();
@@ -208,13 +232,7 @@ export default function RanksSection() {
       />
 
       <div className="container mx-auto max-w-6xl">
-        <motion.div
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
+        <div className="text-center mb-16">
           <h2
             className="font-pixel mb-4"
             style={{
@@ -228,7 +246,7 @@ export default function RanksSection() {
             Unlock exclusive perks and rise above the rest. Choose the rank that
             fits your playstyle.
           </p>
-        </motion.div>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
           {ranks.map((rank, index) => {
@@ -236,21 +254,20 @@ export default function RanksSection() {
             const Icon = rank.icon || Shield;
             const rankImage = RANK_IMAGES[rank.tier];
             const isMedia = rank.tier === "media";
+            const isHovered = hoveredId === rank.id;
             return (
-              <motion.div
+              <div
                 key={rank.id}
                 data-ocid={`ranks.item.${index + 1}`}
-                className="relative rounded-xl border overflow-hidden flex flex-col"
+                className="relative rounded-xl border overflow-hidden flex flex-col transition-all duration-200"
                 style={{
                   borderColor: style.border,
                   background: "oklch(14% 0.025 250)",
-                  boxShadow: isMedia ? style.glow : undefined,
+                  boxShadow: isMedia || isHovered ? style.glow : undefined,
+                  transform: isHovered ? "translateY(-4px)" : "none",
                 }}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                whileHover={{ y: -4, boxShadow: style.glow }}
+                onMouseEnter={() => setHoveredId(rank.id)}
+                onMouseLeave={() => setHoveredId(null)}
               >
                 {rank.popular && (
                   <div
@@ -281,13 +298,11 @@ export default function RanksSection() {
                       background: `radial-gradient(ellipse at center, ${style.bg} 0%, transparent 70%)`,
                     }}
                   >
-                    <motion.img
+                    <img
                       src={rankImage}
                       alt={`${rank.name} rank`}
-                      className="w-24 h-24 object-contain"
+                      className="w-24 h-24 object-contain transition-transform duration-200 hover:scale-105"
                       style={{ filter: `drop-shadow(0 0 12px ${style.text})` }}
-                      whileHover={{ scale: 1.08 }}
-                      transition={{ duration: 0.2 }}
                     />
                   </div>
                 )}
@@ -352,16 +367,12 @@ export default function RanksSection() {
                   )}
 
                   <div className="mb-4">
-                    <motion.span
-                      key={formatPrice(rank.price)}
+                    <span
                       className="font-display text-2xl font-bold"
                       style={{ color: "white" }}
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2 }}
                     >
                       {formatPrice(rank.price)}
-                    </motion.span>
+                    </span>
                     <span className="text-muted-foreground text-xs ml-1">
                       one-time
                     </span>
@@ -382,32 +393,61 @@ export default function RanksSection() {
                     ))}
                   </ul>
 
-                  <Button
+                  {/* Buy Now — full width with hover glow */}
+                  <button
+                    type="button"
                     data-ocid={`ranks.buy.button.${index + 1}`}
-                    className="w-full font-semibold transition-all text-sm"
+                    className="w-full font-semibold text-sm rounded-md px-4 py-2 border mb-2 transition-all duration-200 hover:brightness-125"
                     style={{
                       background: style.bg,
                       color: style.text,
-                      border: `1px solid ${style.border}`,
+                      borderColor: style.border,
+                      boxShadow: isHovered ? style.glow : "none",
                     }}
                     onClick={() => handleBuyNow(rank)}
                   >
                     Buy Now
-                  </Button>
+                  </button>
+
+                  {/* Add to Cart — quick add, no suggestions */}
+                  {!isMedia && (
+                    <button
+                      type="button"
+                      data-ocid={`ranks.add_to_cart.button.${index + 1}`}
+                      className="w-full text-xs rounded-md px-3 py-1.5 border flex items-center justify-center gap-1.5 transition-all duration-200 hover:brightness-110"
+                      style={{
+                        background: "transparent",
+                        color: "oklch(55% 0.06 250)",
+                        borderColor: "oklch(30% 0.04 250)",
+                      }}
+                      onMouseEnter={(e) => {
+                        const el = e.currentTarget;
+                        el.style.color = style.text;
+                        el.style.borderColor = style.border;
+                        el.style.background = style.bg;
+                      }}
+                      onMouseLeave={(e) => {
+                        const el = e.currentTarget;
+                        el.style.color = "oklch(55% 0.06 250)";
+                        el.style.borderColor = "oklch(30% 0.04 250)";
+                        el.style.background = "transparent";
+                      }}
+                      onClick={() => handleAddToCart(rank)}
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add to Cart
+                    </button>
+                  )}
                 </div>
-              </motion.div>
+              </div>
             );
           })}
         </div>
 
         {/* Media Rank info section */}
-        <motion.div
+        <div
           data-ocid="ranks.media_info.section"
           className="mt-12 rounded-2xl p-8"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
           style={{
             background: "oklch(14% 0.025 250)",
             border: "1px solid oklch(45% 0.25 25 / 0.5)",
@@ -456,7 +496,7 @@ export default function RanksSection() {
               </Button>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );
