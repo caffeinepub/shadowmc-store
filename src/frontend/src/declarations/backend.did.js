@@ -106,6 +106,7 @@ export const ManualOrder = IDL.Record({
   'paymentMethod' : IDL.Text,
   'screenshotBase64' : IDL.Text,
   'verified' : IDL.Bool,
+  'blocked' : IDL.Bool,
 });
 export const ManualOrderLite = IDL.Record({
   'id' : IDL.Nat,
@@ -116,6 +117,7 @@ export const ManualOrderLite = IDL.Record({
   'totalINR' : IDL.Nat,
   'paymentMethod' : IDL.Text,
   'verified' : IDL.Bool,
+  'blocked' : IDL.Bool,
   'hasScreenshot' : IDL.Bool,
 });
 
@@ -124,11 +126,13 @@ export const idlService = IDL.Service({
   'addCoinBundle' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
   'addRank' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'blockManualOrder' : IDL.Func([IDL.Nat], [IDL.Bool], []),
   'createCheckoutSession' : IDL.Func(
       [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
       [IDL.Text],
       [],
     ),
+  'deleteManualOrder' : IDL.Func([IDL.Nat], [IDL.Bool], []),
   'getCallerPurchases' : IDL.Func([], [IDL.Vec(Purchase)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
@@ -258,6 +262,7 @@ export const idlFactory = ({ IDL }) => {
     'paymentMethod' : IDL.Text,
     'screenshotBase64' : IDL.Text,
     'verified' : IDL.Bool,
+    'blocked' : IDL.Bool,
   });
   const ManualOrderLite = IDL.Record({
     'id' : IDL.Nat,
@@ -268,6 +273,7 @@ export const idlFactory = ({ IDL }) => {
     'totalINR' : IDL.Nat,
     'paymentMethod' : IDL.Text,
     'verified' : IDL.Bool,
+    'blocked' : IDL.Bool,
     'hasScreenshot' : IDL.Bool,
   });
 
@@ -276,11 +282,13 @@ export const idlFactory = ({ IDL }) => {
     'addCoinBundle' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
     'addRank' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'blockManualOrder' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'createCheckoutSession' : IDL.Func(
         [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
         [IDL.Text],
         [],
       ),
+    'deleteManualOrder' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'getCallerPurchases' : IDL.Func([], [IDL.Vec(Purchase)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),

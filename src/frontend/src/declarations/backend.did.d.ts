@@ -30,6 +30,7 @@ export interface ManualOrder {
   'paymentMethod' : string,
   'screenshotBase64' : string,
   'verified' : boolean,
+  'blocked' : boolean,
 }
 export interface ManualOrderLite {
   'id' : bigint,
@@ -40,6 +41,7 @@ export interface ManualOrderLite {
   'totalINR' : bigint,
   'paymentMethod' : string,
   'verified' : boolean,
+  'blocked' : boolean,
   'hasScreenshot' : boolean,
 }
 export interface Product {
@@ -106,10 +108,12 @@ export interface _SERVICE {
   'addCoinBundle' : ActorMethod<[bigint, bigint], undefined>,
   'addRank' : ActorMethod<[string, bigint, string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'blockManualOrder' : ActorMethod<[bigint], boolean>,
   'createCheckoutSession' : ActorMethod<
     [Array<ShoppingItem>, string, string],
     string
   >,
+  'deleteManualOrder' : ActorMethod<[bigint], boolean>,
   'getCallerPurchases' : ActorMethod<[], Array<Purchase>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,

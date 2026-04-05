@@ -39,10 +39,15 @@ export default function Navbar({
           type="button"
           data-ocid="nav.home.link"
           onClick={() => onNavigate("home")}
-          className="font-pixel text-sm tracking-wide"
-          style={{ color: "oklch(78% 0.18 195)" }}
+          className="flex items-center flex-shrink-0"
+          aria-label="ShadowMC Home"
         >
-          ShadowMC
+          <img
+            src="/assets/shadow_mc_in_the_mist-019d5d3d-38b0-762f-a25f-c34608a0a5df.png"
+            alt="ShadowMC"
+            className="h-10 w-auto object-contain"
+            style={{ maxWidth: "160px" }}
+          />
         </button>
 
         {/* Nav links */}

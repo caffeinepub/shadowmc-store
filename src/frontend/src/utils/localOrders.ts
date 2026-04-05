@@ -10,6 +10,7 @@ export interface LocalOrder {
   username: string;
   email: string;
   verified: boolean;
+  blocked?: boolean;
   backendId?: number; // Optional: ID returned by submitManualOrder (Nat as number)
 }
 

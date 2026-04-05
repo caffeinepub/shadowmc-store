@@ -87,6 +87,21 @@ actor {
     priceINR : Nat;
   };
 
+  // Legacy type — matches the old stable schema (no `blocked` field).
+  // Kept only for migration; do NOT use for new data.
+  type ManualOrderV1 = {
+    id : Nat;
+    timestamp : Time.Time;
+    username : Text;
+    email : Text;
+    items : [ManualOrderItem];
+    totalINR : Nat;
+    paymentMethod : Text;
+    screenshotBase64 : Text;
+    verified : Bool;
+  };
+
+  // Current type — includes `blocked`.
   public type ManualOrder = {
     id : Nat;
     timestamp : Time.Time;
@@ -97,6 +112,7 @@ actor {
     paymentMethod : Text;
     screenshotBase64 : Text;
     verified : Bool;
+    blocked : Bool;
   };
 
   // Lite version without screenshot data (to avoid response size limit)
@@ -109,6 +125,7 @@ actor {
     totalINR : Nat;
     paymentMethod : Text;
     verified : Bool;
+    blocked : Bool;
     hasScreenshot : Bool;
   };
 
@@ -123,9 +140,38 @@ actor {
   // Separate map tracking which purchase IDs have been verified by admin
   let verifiedPurchaseIds = Map.empty<Nat, Time.Time>();
 
-  // Manual UPI orders storage
-  let manualOrders = List.empty<ManualOrder>();
+  // ── MIGRATION-AWARE ORDER STORAGE ─────────────────────────────────────────
+  //
+  // The old stable variable `manualOrders` held List<ManualOrderV1> (no `blocked`).
+  // We keep it under its original name with the old element type so the runtime
+  // can deserialise the on-chain bytes.  On the first call that touches orders
+  // we drain it into `manualOrdersV2` (which has `blocked`) and clear it.
+
+  let manualOrders = List.empty<ManualOrderV1>();   // legacy — kept for upgrade compat
+  let manualOrdersV2 = List.empty<ManualOrder>();   // current storage
+  var manualOrdersMigrated = false;
   var manualOrderIdCounter = 1;
+
+  // Migrate old orders into the new list (runs at most once per upgrade).
+  func migrateOrders() {
+    if (manualOrdersMigrated) return;
+    manualOrdersMigrated := true;
+    for (old in manualOrders.values()) {
+      manualOrdersV2.add({
+        id               = old.id;
+        timestamp        = old.timestamp;
+        username         = old.username;
+        email            = old.email;
+        items            = old.items;
+        totalINR         = old.totalINR;
+        paymentMethod    = old.paymentMethod;
+        screenshotBase64 = old.screenshotBase64;
+        verified         = old.verified;
+        blocked          = false;
+      });
+    };
+    manualOrders.clear();
+  };
 
   var rankIdCounter = 1;
   var purchaseIdCounter = 1;
@@ -249,6 +295,7 @@ actor {
     paymentMethod : Text,
     screenshotBase64 : Text,
   ) : async Nat {
+    migrateOrders();
     let orderId = manualOrderIdCounter;
     manualOrderIdCounter += 1;
 
@@ -262,16 +309,32 @@ actor {
       paymentMethod;
       screenshotBase64;
       verified = false;
+      blocked = false;
     };
 
-    manualOrders.add(newOrder);
+    manualOrdersV2.add(newOrder);
     orderId;
   };
 
   // Get all manual orders WITHOUT screenshot data (small response)
   public query func getManualOrdersLite() : async [ManualOrderLite] {
+    // Merge legacy + new (query functions can't mutate state, so we read both)
     let result = List.empty<ManualOrderLite>();
-    for (order in manualOrders.values()) {
+    for (old in manualOrders.values()) {
+      result.add({
+        id = old.id;
+        timestamp = old.timestamp;
+        username = old.username;
+        email = old.email;
+        items = old.items;
+        totalINR = old.totalINR;
+        paymentMethod = old.paymentMethod;
+        verified = old.verified;
+        blocked = false;
+        hasScreenshot = old.screenshotBase64 != "";
+      });
+    };
+    for (order in manualOrdersV2.values()) {
       result.add({
         id = order.id;
         timestamp = order.timestamp;
@@ -281,6 +344,7 @@ actor {
         totalINR = order.totalINR;
         paymentMethod = order.paymentMethod;
         verified = order.verified;
+        blocked = order.blocked;
         hasScreenshot = order.screenshotBase64 != "";
       });
     };
@@ -290,24 +354,44 @@ actor {
   // Get screenshot for a specific order by ID (on-demand)
   public query func getOrderScreenshot(orderId : Nat) : async Text {
     for (order in manualOrders.values()) {
-      if (order.id == orderId) {
-        return order.screenshotBase64;
-      };
+      if (order.id == orderId) return order.screenshotBase64;
+    };
+    for (order in manualOrdersV2.values()) {
+      if (order.id == orderId) return order.screenshotBase64;
     };
     "";
   };
 
-  // Legacy: Get all manual orders including screenshots (kept for compatibility)
-  // WARNING: This will fail if total screenshot data exceeds 3MB
+  // Legacy: Get all manual orders including screenshots
+  // WARNING: May fail if total screenshot data exceeds 3MB
   public query func getManualOrders() : async [ManualOrder] {
-    manualOrders.toArray();
+    let result = List.empty<ManualOrder>();
+    for (old in manualOrders.values()) {
+      result.add({
+        id = old.id;
+        timestamp = old.timestamp;
+        username = old.username;
+        email = old.email;
+        items = old.items;
+        totalINR = old.totalINR;
+        paymentMethod = old.paymentMethod;
+        screenshotBase64 = old.screenshotBase64;
+        verified = old.verified;
+        blocked = false;
+      });
+    };
+    for (order in manualOrdersV2.values()) {
+      result.add(order);
+    };
+    result.toArray();
   };
 
   // Mark a manual order as verified
   public shared func markManualOrderVerified(orderId : Nat) : async Bool {
+    migrateOrders();
     var found = false;
     let updated = List.empty<ManualOrder>();
-    for (order in manualOrders.values()) {
+    for (order in manualOrdersV2.values()) {
       if (order.id == orderId) {
         updated.add({ order with verified = true });
         found := true;
@@ -316,10 +400,48 @@ actor {
       };
     };
     if (found) {
-      manualOrders.clear();
-      for (o in updated.values()) {
-        manualOrders.add(o);
+      manualOrdersV2.clear();
+      for (o in updated.values()) manualOrdersV2.add(o);
+    };
+    found;
+  };
+
+  // Delete a manual order permanently
+  public shared func deleteManualOrder(orderId : Nat) : async Bool {
+    migrateOrders();
+    var found = false;
+    let updated = List.empty<ManualOrder>();
+    for (order in manualOrdersV2.values()) {
+      if (order.id == orderId) {
+        found := true;
+        // skip — do not re-add
+      } else {
+        updated.add(order);
       };
+    };
+    if (found) {
+      manualOrdersV2.clear();
+      for (o in updated.values()) manualOrdersV2.add(o);
+    };
+    found;
+  };
+
+  // Block a manual order (cancels it, player sees "Blocked")
+  public shared func blockManualOrder(orderId : Nat) : async Bool {
+    migrateOrders();
+    var found = false;
+    let updated = List.empty<ManualOrder>();
+    for (order in manualOrdersV2.values()) {
+      if (order.id == orderId) {
+        updated.add({ order with blocked = true });
+        found := true;
+      } else {
+        updated.add(order);
+      };
+    };
+    if (found) {
+      manualOrdersV2.clear();
+      for (o in updated.values()) manualOrdersV2.add(o);
     };
     found;
   };

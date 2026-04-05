@@ -8,11 +8,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Ban,
   Eye,
   LogOut,
   Package,
   RefreshCw,
   Shield,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -43,6 +45,7 @@ export default function AdminPanel() {
   const [loadingScreenshot, setLoadingScreenshot] = useState<bigint | null>(
     null,
   );
+  const [actionLoading, setActionLoading] = useState<bigint | null>(null);
 
   const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
 
@@ -93,19 +96,56 @@ export default function AdminPanel() {
   };
 
   const handleMarkVerified = async (order: Order) => {
+    setActionLoading(order.id);
     try {
       const rawActor = await createRawActorWithConfig();
       await rawActor.markManualOrderVerified(order.id);
       await fetchOrders();
     } catch (err) {
       console.error("Failed to verify order:", err);
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const totalRevenue = orders.reduce((sum, o) => sum + Number(o.totalINR), 0);
+  const handleDeleteOrder = async (order: Order) => {
+    if (
+      !window.confirm(
+        `Delete order #${String(order.id)} from ${order.username}? This cannot be undone.`,
+      )
+    )
+      return;
+    setActionLoading(order.id);
+    try {
+      const rawActor = await createRawActorWithConfig();
+      await rawActor.deleteManualOrder(order.id);
+      setOrders((prev) => prev.filter((o) => o.id !== order.id));
+    } catch (err) {
+      console.error("Failed to delete order:", err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleBlockOrder = async (order: Order) => {
+    setActionLoading(order.id);
+    try {
+      const rawActor = await createRawActorWithConfig();
+      await rawActor.blockManualOrder(order.id);
+      await fetchOrders();
+    } catch (err) {
+      console.error("Failed to block order:", err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const totalRevenue = orders
+    .filter((o) => !o.blocked)
+    .reduce((sum, o) => sum + Number(o.totalINR), 0);
   const uniquePlayers = new Set(orders.map((o) => o.username)).size;
 
-  // ── LOADING ───────────────────────────────────────────────────────────────
+  // ── LOADING ──────────────────────────────────────────────────────
   if (isInitializing) {
     return (
       <div
@@ -123,7 +163,7 @@ export default function AdminPanel() {
     );
   }
 
-  // ── LOGIN SCREEN ─────────────────────────────────────────────────────────
+  // ── LOGIN SCREEN ─────────────────────────────────────────────────
   if (!isAuthenticated) {
     return (
       <div
@@ -204,7 +244,7 @@ export default function AdminPanel() {
     );
   }
 
-  // ── DASHBOARD ─────────────────────────────────────────────────────────────
+  // ── DASHBOARD ─────────────────────────────────────────────────────
   return (
     <div className="min-h-screen" style={{ background: "oklch(8% 0.02 250)" }}>
       {/* Header */}
@@ -267,7 +307,7 @@ export default function AdminPanel() {
             },
             {
               label: "Total Revenue",
-              value: `₹${totalRevenue.toLocaleString("en-IN")}`,
+              value: `\u20b9${totalRevenue.toLocaleString("en-IN")}`,
               icon: Shield,
               color: "oklch(75% 0.18 145)",
               bg: "oklch(18% 0.04 145)",
@@ -334,8 +374,8 @@ export default function AdminPanel() {
               className="text-xs mt-0.5"
               style={{ color: "oklch(48% 0.04 250)" }}
             >
-              Newest orders first — click "View" to load a player's payment
-              screenshot
+              Newest orders first — use the buttons to verify, block, or delete
+              orders
             </p>
           </div>
 
@@ -389,6 +429,7 @@ export default function AdminPanel() {
                       "Date",
                       "Screenshot",
                       "Status",
+                      "Actions",
                     ].map((h) => (
                       <TableHead
                         key={h}
@@ -401,131 +442,213 @@ export default function AdminPanel() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orders.map((order, idx) => (
-                    <TableRow
-                      key={String(order.id)}
-                      style={{ borderBottom: "1px solid oklch(16% 0.025 250)" }}
-                    >
-                      <TableCell
-                        className="text-xs font-mono"
-                        style={{ color: "oklch(45% 0.04 250)" }}
+                  {orders.map((order, idx) => {
+                    const isActioning = actionLoading === order.id;
+                    return (
+                      <TableRow
+                        key={String(order.id)}
+                        style={{
+                          borderBottom: "1px solid oklch(16% 0.025 250)",
+                          opacity: order.blocked ? 0.6 : 1,
+                        }}
                       >
-                        {idx + 1}
-                      </TableCell>
-                      <TableCell>
-                        <p
-                          className="text-sm font-bold"
-                          style={{ color: "oklch(88% 0.04 250)" }}
+                        <TableCell
+                          className="text-xs font-mono"
+                          style={{ color: "oklch(45% 0.04 250)" }}
                         >
-                          {order.username}
-                        </p>
-                        <p
-                          className="text-xs mt-0.5"
-                          style={{ color: "oklch(50% 0.04 250)" }}
-                        >
-                          {order.email}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-0.5">
-                          {order.items.map((item, j) => (
-                            <div
-                              key={`${item.name}-${j}`}
-                              className="text-xs"
-                              style={{ color: "oklch(70% 0.05 250)" }}
-                            >
-                              {item.name}{" "}
-                              <span style={{ color: "oklch(50% 0.04 250)" }}>
-                                ×{String(item.quantity)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className="text-sm font-bold"
-                          style={{ color: "oklch(75% 0.18 145)" }}
-                        >
-                          ₹{Number(order.totalINR).toLocaleString("en-IN")}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className="text-xs px-2 py-0.5 rounded-full"
-                          style={{
-                            background: "oklch(20% 0.04 195)",
-                            color: "oklch(72% 0.14 195)",
-                            border: "1px solid oklch(45% 0.12 195 / 0.3)",
-                          }}
-                        >
-                          {order.paymentMethod}
-                        </span>
-                      </TableCell>
-                      <TableCell
-                        className="text-xs whitespace-nowrap"
-                        style={{ color: "oklch(50% 0.04 250)" }}
-                      >
-                        {formatDate(order.timestamp)}
-                      </TableCell>
-                      <TableCell>
-                        {order.hasScreenshot ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleViewScreenshot(order.id)}
-                            disabled={loadingScreenshot === order.id}
-                            className="h-7 text-xs px-2 flex items-center gap-1"
+                          {idx + 1}
+                        </TableCell>
+                        <TableCell>
+                          <p
+                            className="text-sm font-bold"
+                            style={{ color: "oklch(88% 0.04 250)" }}
+                          >
+                            {order.username}
+                          </p>
+                          <p
+                            className="text-xs mt-0.5"
+                            style={{ color: "oklch(50% 0.04 250)" }}
+                          >
+                            {order.email}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            {order.items.map((item, j) => (
+                              <div
+                                key={`${item.name}-${j}`}
+                                className="text-xs"
+                                style={{ color: "oklch(70% 0.05 250)" }}
+                              >
+                                {item.name}{" "}
+                                <span style={{ color: "oklch(50% 0.04 250)" }}>
+                                  \u00d7{String(item.quantity)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className="text-sm font-bold"
+                            style={{ color: "oklch(75% 0.18 145)" }}
+                          >
+                            \u20b9
+                            {Number(order.totalINR).toLocaleString("en-IN")}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full"
                             style={{
+                              background: "oklch(20% 0.04 195)",
                               color: "oklch(72% 0.14 195)",
                               border: "1px solid oklch(45% 0.12 195 / 0.3)",
                             }}
                           >
-                            {loadingScreenshot === order.id ? (
-                              <RefreshCw className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Eye className="w-3 h-3" />
+                            {order.paymentMethod}
+                          </span>
+                        </TableCell>
+                        <TableCell
+                          className="text-xs whitespace-nowrap"
+                          style={{ color: "oklch(50% 0.04 250)" }}
+                        >
+                          {formatDate(order.timestamp)}
+                        </TableCell>
+                        <TableCell>
+                          {order.hasScreenshot ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleViewScreenshot(order.id)}
+                              disabled={loadingScreenshot === order.id}
+                              className="h-7 text-xs px-2 flex items-center gap-1"
+                              style={{
+                                color: "oklch(72% 0.14 195)",
+                                border: "1px solid oklch(45% 0.12 195 / 0.3)",
+                              }}
+                            >
+                              {loadingScreenshot === order.id ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Eye className="w-3 h-3" />
+                              )}
+                              View
+                            </Button>
+                          ) : (
+                            <span
+                              className="text-xs"
+                              style={{ color: "oklch(38% 0.04 250)" }}
+                            >
+                              —
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {order.blocked ? (
+                            <span
+                              className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                              style={{
+                                background: "oklch(20% 0.04 30)",
+                                color: "oklch(72% 0.18 30)",
+                                border: "1px solid oklch(45% 0.15 30 / 0.35)",
+                              }}
+                            >
+                              ⛔ Blocked
+                            </span>
+                          ) : order.verified ? (
+                            <span
+                              className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                              style={{
+                                background: "oklch(20% 0.04 145)",
+                                color: "oklch(72% 0.18 145)",
+                                border: "1px solid oklch(45% 0.15 145 / 0.35)",
+                              }}
+                            >
+                              \u2713 Verified
+                            </span>
+                          ) : (
+                            <span
+                              className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                              style={{
+                                background: "oklch(20% 0.04 60)",
+                                color: "oklch(72% 0.18 60)",
+                                border: "1px solid oklch(45% 0.15 60 / 0.35)",
+                              }}
+                            >
+                              Pending
+                            </span>
+                          )}
+                        </TableCell>
+                        {/* Actions column */}
+                        <TableCell>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {/* Mark Verified -- only show if not yet verified or blocked */}
+                            {!order.verified && !order.blocked && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleMarkVerified(order)}
+                                disabled={isActioning}
+                                className="h-7 text-xs px-2 flex items-center gap-1"
+                                style={{
+                                  background: "oklch(22% 0.04 145)",
+                                  color: "oklch(72% 0.18 145)",
+                                  border: "1px solid oklch(45% 0.15 145 / 0.4)",
+                                }}
+                              >
+                                {isActioning ? (
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Shield className="w-3 h-3" />
+                                )}
+                                Verify
+                              </Button>
                             )}
-                            View
-                          </Button>
-                        ) : (
-                          <span
-                            className="text-xs"
-                            style={{ color: "oklch(38% 0.04 250)" }}
-                          >
-                            —
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {order.verified ? (
-                          <span
-                            className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                            style={{
-                              background: "oklch(20% 0.04 145)",
-                              color: "oklch(72% 0.18 145)",
-                              border: "1px solid oklch(45% 0.15 145 / 0.35)",
-                            }}
-                          >
-                            ✓ Verified
-                          </span>
-                        ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => handleMarkVerified(order)}
-                            className="h-7 text-xs px-3"
-                            style={{
-                              background: "oklch(22% 0.04 195)",
-                              color: "oklch(72% 0.14 195)",
-                              border: "1px solid oklch(45% 0.12 195 / 0.4)",
-                            }}
-                          >
-                            Mark Verified
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {/* Block -- only show if not already blocked */}
+                            {!order.blocked && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleBlockOrder(order)}
+                                disabled={isActioning}
+                                className="h-7 text-xs px-2 flex items-center gap-1"
+                                style={{
+                                  background: "oklch(22% 0.04 55)",
+                                  color: "oklch(75% 0.18 55)",
+                                  border: "1px solid oklch(50% 0.18 55 / 0.4)",
+                                }}
+                              >
+                                {isActioning ? (
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Ban className="w-3 h-3" />
+                                )}
+                                Block
+                              </Button>
+                            )}
+                            {/* Delete -- always available */}
+                            <Button
+                              size="sm"
+                              onClick={() => handleDeleteOrder(order)}
+                              disabled={isActioning}
+                              className="h-7 text-xs px-2 flex items-center gap-1"
+                              style={{
+                                background: "oklch(22% 0.04 25)",
+                                color: "oklch(70% 0.18 25)",
+                                border: "1px solid oklch(48% 0.18 25 / 0.4)",
+                              }}
+                            >
+                              {isActioning ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -580,7 +703,7 @@ export default function AdminPanel() {
                 className="text-center mt-3 text-xs"
                 style={{ color: "oklch(45% 0.04 250)" }}
               >
-                Click outside or the ✕ to close
+                Click outside or the \u2715 to close
               </p>
             </motion.div>
           </motion.div>

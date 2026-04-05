@@ -40,7 +40,7 @@ export default function PurchaseHistory() {
   // Track which order IDs are in the process of being deleted (for animation)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
-  // Load local manual orders and sync verified status from backend
+  // Load local manual orders and sync verified/blocked status from backend
   useEffect(() => {
     const syncOrders = async () => {
       const orders = loadLocalOrders();
@@ -54,21 +54,33 @@ export default function PurchaseHistory() {
       setIsSyncing(true);
       try {
         const rawActor = await createRawActorWithConfig();
-        const backendOrders = (await rawActor.getManualOrders()) as Array<{
+        // Use Lite version -- no screenshots, small payload
+        const backendOrders = (await rawActor.getManualOrdersLite()) as Array<{
           id: bigint;
           verified: boolean;
+          blocked: boolean;
         }>;
 
-        const verifiedMap = new Map<number, boolean>();
+        const statusMap = new Map<
+          number,
+          { verified: boolean; blocked: boolean }
+        >();
         for (const bo of backendOrders) {
-          verifiedMap.set(Number(bo.id), bo.verified);
+          statusMap.set(Number(bo.id), {
+            verified: bo.verified,
+            blocked: bo.blocked ?? false,
+          });
         }
 
         const mergedOrders = orders.map((order) => {
           if (order.backendId !== undefined) {
-            const backendVerified = verifiedMap.get(order.backendId);
-            if (backendVerified !== undefined) {
-              return { ...order, verified: backendVerified };
+            const status = statusMap.get(order.backendId);
+            if (status !== undefined) {
+              return {
+                ...order,
+                verified: status.verified,
+                blocked: status.blocked,
+              };
             }
           }
           return order;
@@ -109,11 +121,57 @@ export default function PurchaseHistory() {
   const hasLocalOrders = localOrders.length > 0;
   const hasStripePurchases = (stripePurchases?.length ?? 0) > 0;
 
+  function getStatusBadge(order: LocalOrder) {
+    if (order.blocked) {
+      return (
+        <Badge
+          variant="secondary"
+          className="text-xs"
+          style={{
+            background: "oklch(20% 0.04 25)",
+            color: "oklch(70% 0.18 25)",
+            border: "1px solid oklch(45% 0.15 25 / 0.3)",
+          }}
+        >
+          ⛔ Blocked
+        </Badge>
+      );
+    }
+    if (order.verified) {
+      return (
+        <Badge
+          variant="secondary"
+          className="text-xs"
+          style={{
+            background: "oklch(20% 0.04 145)",
+            color: "oklch(72% 0.18 145)",
+            border: "1px solid oklch(45% 0.15 145 / 0.3)",
+          }}
+        >
+          ✓ Verified
+        </Badge>
+      );
+    }
+    return (
+      <Badge
+        variant="secondary"
+        className="text-xs"
+        style={{
+          background: "oklch(20% 0.04 60)",
+          color: "oklch(72% 0.18 60)",
+          border: "1px solid oklch(55% 0.18 60 / 0.3)",
+        }}
+      >
+        Pending Review
+      </Badge>
+    );
+  }
+
   return (
     <section
       id="history"
       className="py-24 px-4"
-      style={{ background: "oklch(12% 0.02 250)" }}
+      style={{ background: "oklch(12% 0.02 250 / 0.85)" }}
     >
       <div className="container mx-auto max-w-3xl">
         <motion.div
@@ -253,25 +311,9 @@ export default function PurchaseHistory() {
                         </div>
                         <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
                           <p className="font-semibold text-foreground text-sm">
-                            ₹{order.totalINR.toLocaleString("en-IN")}
+                            \u20b9{order.totalINR.toLocaleString("en-IN")}
                           </p>
-                          <Badge
-                            variant="secondary"
-                            className="text-xs"
-                            style={{
-                              background: order.verified
-                                ? "oklch(20% 0.04 145)"
-                                : "oklch(20% 0.04 60)",
-                              color: order.verified
-                                ? "oklch(72% 0.18 145)"
-                                : "oklch(72% 0.18 60)",
-                              border: order.verified
-                                ? "1px solid oklch(45% 0.15 145 / 0.3)"
-                                : "1px solid oklch(55% 0.18 60 / 0.3)",
-                            }}
-                          >
-                            {order.verified ? "✓ Verified" : "Pending Review"}
-                          </Badge>
+                          {getStatusBadge(order)}
                           {/* Delete button */}
                           <motion.button
                             type="button"
@@ -379,7 +421,7 @@ export default function PurchaseHistory() {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-foreground">
-                          ₹
+                          \u20b9
                           {Math.round(
                             (Number(purchase.priceCents) / 100) * INR_PER_USD,
                           ).toLocaleString("en-IN")}

@@ -84,49 +84,70 @@ function StoreApp() {
   const topOffset = bannerVisible ? "top-[96px]" : "top-16";
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Entry popup — shown before store access */}
-      {!userInfo.hasEnteredStore && <EntryPopup />}
-
-      <LaunchBanner
-        visible={bannerVisible}
-        onDismiss={() => setBannerVisible(false)}
-      />
-      <Navbar
-        activeSection={activeSection}
-        onNavigate={handleNavigate}
-        bannerVisible={bannerVisible}
-      />
-      <main
-        className={`pt-16 transition-all duration-300 ${topOffset}`}
-        style={{ paddingTop: 0, marginTop: bannerVisible ? "96px" : "64px" }}
-      >
-        <div id="home">
-          <Hero onNavigate={handleNavigate} />
-        </div>
-        <RanksSection />
-        <CoinsSection />
-        <PaymentSection />
-        <PurchaseHistory />
-      </main>
-      <Footer />
-      <CartDrawer />
-      <Toaster
-        theme="dark"
-        toastOptions={{
-          style: {
-            background: "oklch(16% 0.025 250)",
-            border: "1px solid oklch(25% 0.04 250)",
-            color: "oklch(95% 0.01 240)",
-          },
+    <div
+      className="min-h-screen bg-background relative"
+      style={{
+        backgroundImage:
+          "url('/assets/mystical_castle_by_the_glowing_river-019d5d3d-38d7-73c9-ba97-34f20c1ef530.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center top",
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      {/* Dark overlay to keep text readable */}
+      <div
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{
+          background:
+            "linear-gradient(to bottom, oklch(8% 0.02 250 / 0.75) 0%, oklch(8% 0.02 250 / 0.85) 40%, oklch(8% 0.02 250 / 0.92) 100%)",
         }}
       />
+
+      <div className="relative z-10">
+        {/* Entry popup — shown before store access */}
+        {!userInfo.hasEnteredStore && <EntryPopup />}
+
+        <LaunchBanner
+          visible={bannerVisible}
+          onDismiss={() => setBannerVisible(false)}
+        />
+        <Navbar
+          activeSection={activeSection}
+          onNavigate={handleNavigate}
+          bannerVisible={bannerVisible}
+        />
+        <main
+          className={`pt-16 transition-all duration-300 ${topOffset}`}
+          style={{ paddingTop: 0, marginTop: bannerVisible ? "96px" : "64px" }}
+        >
+          <div id="home">
+            <Hero onNavigate={handleNavigate} />
+          </div>
+          <RanksSection />
+          <CoinsSection />
+          <PaymentSection />
+          <PurchaseHistory />
+        </main>
+        <Footer />
+        <CartDrawer />
+        <Toaster
+          theme="dark"
+          toastOptions={{
+            style: {
+              background: "oklch(16% 0.025 250)",
+              border: "1px solid oklch(25% 0.04 250)",
+              color: "oklch(95% 0.01 240)",
+            },
+          }}
+        />
+      </div>
     </div>
   );
 }
 
 export default function App() {
-  // Admin panel — no Internet Identity required, uses PIN auth
+  // Admin panel — Internet Identity login
   if (isAdminPage()) {
     return (
       <QueryClientProvider client={queryClient}>

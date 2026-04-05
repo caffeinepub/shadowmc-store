@@ -5,7 +5,8 @@ import {
   ExternalBlob,
 } from "./backend";
 import { StorageClient } from "./utils/StorageClient";
-import { HttpAgent } from "@icp-sdk/core/agent";
+import { Actor, HttpAgent } from "@icp-sdk/core/agent";
+import { idlFactory } from "./declarations/backend.did.js";
 
 const DEFAULT_STORAGE_GATEWAY_URL = "https://blob.caffeine.ai";
 const DEFAULT_BUCKET_NAME = "default-bucket";
@@ -178,19 +179,26 @@ export async function createActorWithConfig(
   );
 }
 
-// Raw actor that bypasses the typed wrapper -- needed for methods not in the
-// generated bindings (getManualOrdersLite, getOrderScreenshot, submitManualOrder, etc.)
-import { Actor } from "@icp-sdk/core/agent";
-import { idlFactory } from "./declarations/backend.did";
-
+/**
+ * Creates a raw Candid actor that directly exposes ALL backend methods
+ * including getManualOrdersLite, getOrderScreenshot, submitManualOrder,
+ * markManualOrderVerified, deleteManualOrder, blockManualOrder.
+ *
+ * Unlike createActorWithConfig, this bypasses the typed wrapper class
+ * so dynamically-added methods (manual orders) are accessible.
+ */
 export async function createRawActorWithConfig(): Promise<Record<string, (...args: unknown[]) => Promise<unknown>>> {
   const config = await loadConfig();
-  const agent = new HttpAgent({ host: config.backend_host });
+  const agent = new HttpAgent({
+    host: config.backend_host,
+  });
   if (config.backend_host?.includes("localhost")) {
-    await agent.fetchRootKey().catch(console.error);
+    await agent.fetchRootKey().catch((err) => {
+      console.warn("Unable to fetch root key.", err);
+    });
   }
   return Actor.createActor(idlFactory, {
     agent,
     canisterId: config.backend_canister_id,
-  }) as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+  }) as Record<string, (...args: unknown[]) => Promise<unknown>>;
 }
