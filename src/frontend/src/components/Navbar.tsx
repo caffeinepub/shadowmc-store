@@ -43,7 +43,7 @@ export default function Navbar({
           aria-label="ShadowMC Home"
         >
           <img
-            src="/assets/shadow_mc_in_the_mist-019d5d3d-38b0-762f-a25f-c34608a0a5df.png"
+            src="/assets/shadow_mc_in_the_mist-019d5d61-4deb-74fc-bad1-ec6c1bc949bb.png"
             alt="ShadowMC"
             className="h-10 w-auto object-contain"
             style={{ maxWidth: "160px" }}

@@ -88,7 +88,7 @@ function StoreApp() {
       className="min-h-screen bg-background relative"
       style={{
         backgroundImage:
-          "url('/assets/mystical_castle_by_the_glowing_river-019d5d3d-38d7-73c9-ba97-34f20c1ef530.png')",
+          "url('/assets/mystical_castle_by_the_glowing_river-019d5d61-5346-751b-853e-7bc20a863d8d.png')",
         backgroundSize: "cover",
         backgroundPosition: "center top",
         backgroundRepeat: "no-repeat",
