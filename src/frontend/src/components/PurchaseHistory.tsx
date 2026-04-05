@@ -54,7 +54,10 @@ export default function PurchaseHistory() {
       setIsSyncing(true);
       try {
         const rawActor = await createRawActorWithConfig();
-        const backendOrders = await rawActor.getManualOrders();
+        const backendOrders = (await rawActor.getManualOrders()) as Array<{
+          id: bigint;
+          verified: boolean;
+        }>;
 
         const verifiedMap = new Map<number, boolean>();
         for (const bo of backendOrders) {

@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -8,29 +7,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Eye,
-  EyeOff,
-  LogOut,
-  Package,
-  RefreshCw,
-  Shield,
-  Users,
-  X,
-} from "lucide-react";
+import { LogOut, Package, RefreshCw, Shield, Users, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createRawActorWithConfig } from "../config";
 import type { ManualOrder } from "../declarations/backend.did.d.ts";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
-const ADMIN_PIN = "1313";
-const ADMIN_AUTH_KEY = "shadowmc_admin_auth";
+const _ADMIN_PRINCIPAL = "rayyan.khan20125@gmail.com";
 
-// Use canonical types from Candid declarations
 type Order = ManualOrder;
 
 function formatDate(ts: bigint): string {
-  // ts is nanoseconds — convert to milliseconds
   return new Date(Number(ts) / 1_000_000).toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
@@ -41,23 +29,20 @@ function formatDate(ts: bigint): string {
 }
 
 export default function AdminPanel() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem(ADMIN_AUTH_KEY) === "true";
-  });
-  const [pin, setPin] = useState("");
-  const [pinError, setPinError] = useState("");
-  const [showPin, setShowPin] = useState(false);
+  const { identity, login, clear, isInitializing, isLoggingIn, loginStatus } =
+    useInternetIdentity();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const pinInputRef = useRef<HTMLInputElement>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
 
   const fetchOrders = useCallback(async () => {
     setIsLoading(true);
     try {
       const rawActor = await createRawActorWithConfig();
-      const result = await rawActor.getManualOrders();
-      // Sort newest first by timestamp
+      const result = (await rawActor.getManualOrders()) as Order[];
       const sorted = [...result].sort(
         (a, b) => Number(b.timestamp) - Number(a.timestamp),
       );
@@ -71,41 +56,22 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (isAuthenticated) {
+      // All logged-in users can access the admin panel (owner only knows the URL)
+      setAccessDenied(false);
       fetchOrders();
-    } else {
-      setTimeout(() => pinInputRef.current?.focus(), 100);
     }
   }, [isAuthenticated, fetchOrders]);
 
-  const handlePinSubmit = () => {
-    if (pin === ADMIN_PIN) {
-      localStorage.setItem(ADMIN_AUTH_KEY, "true");
-      setIsAuthenticated(true);
-      setPinError("");
-    } else {
-      setPinError("Wrong password. Try again.");
-      setPin("");
-      setTimeout(() => pinInputRef.current?.focus(), 50);
-    }
-  };
-
-  const handlePinKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handlePinSubmit();
-  };
-
   const handleLogout = () => {
-    localStorage.removeItem(ADMIN_AUTH_KEY);
-    setIsAuthenticated(false);
-    setPin("");
-    setPinError("");
+    clear();
     setOrders([]);
+    setAccessDenied(false);
   };
 
   const handleMarkVerified = async (order: Order) => {
     try {
       const rawActor = await createRawActorWithConfig();
       await rawActor.markManualOrderVerified(order.id);
-      // Refresh the list
       await fetchOrders();
     } catch (err) {
       console.error("Failed to verify order:", err);
@@ -115,7 +81,60 @@ export default function AdminPanel() {
   const totalRevenue = orders.reduce((sum, o) => sum + Number(o.totalINR), 0);
   const uniquePlayers = new Set(orders.map((o) => o.username)).size;
 
-  // ── PIN LOGIN SCREEN ──────────────────────────────────────────────────────
+  // ── LOADING ───────────────────────────────────────────────────────────────
+  if (isInitializing) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "oklch(8% 0.02 250)" }}
+      >
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw
+            className="w-8 h-8 animate-spin"
+            style={{ color: "oklch(78% 0.18 195)" }}
+          />
+          <p style={{ color: "oklch(55% 0.05 250)" }}>Initializing...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── ACCESS DENIED ────────────────────────────────────────────────────────
+  if (accessDenied) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{ background: "oklch(8% 0.02 250)" }}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl p-8 text-center"
+          style={{
+            background: "oklch(12% 0.025 250)",
+            border: "1px solid oklch(22% 0.04 250)",
+          }}
+        >
+          <Shield
+            className="w-12 h-12 mx-auto mb-4"
+            style={{ color: "oklch(65% 0.2 25)" }}
+          />
+          <h1
+            className="text-xl font-bold mb-2"
+            style={{ color: "oklch(65% 0.2 25)" }}
+          >
+            Access Denied
+          </h1>
+          <p className="text-sm mb-6" style={{ color: "oklch(50% 0.05 250)" }}>
+            This admin panel is restricted to the store owner only.
+          </p>
+          <Button onClick={handleLogout} variant="ghost" size="sm">
+            Log out
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── LOGIN SCREEN ─────────────────────────────────────────────────────────
   if (!isAuthenticated) {
     return (
       <div
@@ -132,9 +151,7 @@ export default function AdminPanel() {
             border: "1px solid oklch(22% 0.04 250)",
             boxShadow: "0 32px 80px oklch(0% 0 0 / 0.6)",
           }}
-          data-ocid="admin.modal"
         >
-          {/* Shield icon */}
           <div className="flex justify-center mb-6">
             <div
               className="w-20 h-20 rounded-full flex items-center justify-center"
@@ -161,90 +178,38 @@ export default function AdminPanel() {
             className="text-sm text-center mb-8"
             style={{ color: "oklch(50% 0.05 250)" }}
           >
-            Enter your 4-digit PIN to continue
+            Login with Internet Identity to access the admin panel
           </p>
 
-          <div className="space-y-3">
-            <div className="relative">
-              <Input
-                ref={pinInputRef}
-                data-ocid="admin.pin.input"
-                type={showPin ? "text" : "password"}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={4}
-                placeholder="••••"
-                value={pin}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, "").slice(0, 4);
-                  setPin(val);
-                  if (pinError) setPinError("");
-                }}
-                onKeyDown={handlePinKeyDown}
-                className="text-center text-2xl tracking-[0.5em] pr-10 h-14"
-                style={{
-                  background: "oklch(16% 0.03 250)",
-                  border: pinError
-                    ? "1px solid oklch(65% 0.2 25)"
-                    : "1px solid oklch(28% 0.04 250)",
-                  color: "oklch(90% 0.04 250)",
-                  letterSpacing: "0.4em",
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPin(!showPin)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70"
-                style={{ color: "oklch(50% 0.05 250)" }}
-                tabIndex={-1}
-              >
-                {showPin ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
-              </button>
-            </div>
+          <Button
+            className="w-full h-12 font-bold text-base"
+            onClick={login}
+            disabled={isLoggingIn}
+            style={{
+              background: "oklch(78% 0.18 195)",
+              color: "oklch(10% 0.02 250)",
+              boxShadow: "0 0 20px oklch(78% 0.18 195 / 0.35)",
+              opacity: isLoggingIn ? 0.7 : 1,
+            }}
+          >
+            {isLoggingIn ? (
+              <span className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Opening Internet Identity...
+              </span>
+            ) : (
+              "Login with Internet Identity"
+            )}
+          </Button>
 
-            <AnimatePresence>
-              {pinError && (
-                <motion.p
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  data-ocid="admin.pin.error_state"
-                  className="text-xs text-center"
-                  style={{ color: "oklch(65% 0.2 25)" }}
-                >
-                  {pinError}
-                </motion.p>
-              )}
-            </AnimatePresence>
-
-            <Button
-              data-ocid="admin.login.submit_button"
-              className="w-full h-12 font-bold text-base"
-              onClick={handlePinSubmit}
-              disabled={pin.length !== 4}
-              style={{
-                background:
-                  pin.length === 4
-                    ? "oklch(78% 0.18 195)"
-                    : "oklch(22% 0.03 250)",
-                color:
-                  pin.length === 4
-                    ? "oklch(10% 0.02 250)"
-                    : "oklch(40% 0.04 250)",
-                boxShadow:
-                  pin.length === 4
-                    ? "0 0 20px oklch(78% 0.18 195 / 0.35)"
-                    : "none",
-                transition: "all 0.2s",
-              }}
+          {loginStatus === "loginError" && (
+            <p
+              className="text-xs text-center mt-3"
+              style={{ color: "oklch(65% 0.2 25)" }}
             >
-              Enter Admin Panel
-            </Button>
-          </div>
+              Login failed. Please try again.
+            </p>
+          )}
         </motion.div>
       </div>
     );
@@ -276,7 +241,6 @@ export default function AdminPanel() {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            data-ocid="admin.refresh.button"
             variant="ghost"
             size="sm"
             onClick={fetchOrders}
@@ -290,7 +254,6 @@ export default function AdminPanel() {
             Refresh
           </Button>
           <Button
-            data-ocid="admin.logout.button"
             variant="ghost"
             size="sm"
             onClick={handleLogout}
@@ -312,7 +275,6 @@ export default function AdminPanel() {
               icon: Package,
               color: "oklch(78% 0.18 195)",
               bg: "oklch(18% 0.04 195)",
-              ocid: "admin.stats.orders.card",
             },
             {
               label: "Total Revenue",
@@ -320,7 +282,6 @@ export default function AdminPanel() {
               icon: Shield,
               color: "oklch(75% 0.18 145)",
               bg: "oklch(18% 0.04 145)",
-              ocid: "admin.stats.revenue.card",
             },
             {
               label: "Unique Players",
@@ -328,12 +289,10 @@ export default function AdminPanel() {
               icon: Users,
               color: "oklch(78% 0.18 60)",
               bg: "oklch(18% 0.04 60)",
-              ocid: "admin.stats.players.card",
             },
           ].map((stat) => (
             <motion.div
               key={stat.label}
-              data-ocid={stat.ocid}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
@@ -392,10 +351,7 @@ export default function AdminPanel() {
           </div>
 
           {isLoading && orders.length === 0 ? (
-            <div
-              data-ocid="admin.orders.loading_state"
-              className="flex flex-col items-center justify-center py-20 gap-4"
-            >
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
               <RefreshCw
                 className="w-8 h-8 animate-spin"
                 style={{ color: "oklch(55% 0.08 195)" }}
@@ -408,10 +364,7 @@ export default function AdminPanel() {
               </p>
             </div>
           ) : orders.length === 0 ? (
-            <div
-              data-ocid="admin.orders.empty_state"
-              className="flex flex-col items-center justify-center py-20 gap-4"
-            >
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
               <div
                 className="w-16 h-16 rounded-full flex items-center justify-center"
                 style={{ background: "oklch(18% 0.03 250)" }}
@@ -436,9 +389,7 @@ export default function AdminPanel() {
               <Table>
                 <TableHeader>
                   <TableRow
-                    style={{
-                      borderBottom: "1px solid oklch(18% 0.03 250)",
-                    }}
+                    style={{ borderBottom: "1px solid oklch(18% 0.03 250)" }}
                   >
                     {[
                       "#",
@@ -464,20 +415,14 @@ export default function AdminPanel() {
                   {orders.map((order, idx) => (
                     <TableRow
                       key={String(order.id)}
-                      data-ocid={`admin.orders.item.${idx + 1}`}
-                      style={{
-                        borderBottom: "1px solid oklch(16% 0.025 250)",
-                      }}
+                      style={{ borderBottom: "1px solid oklch(16% 0.025 250)" }}
                     >
-                      {/* # */}
                       <TableCell
                         className="text-xs font-mono"
                         style={{ color: "oklch(45% 0.04 250)" }}
                       >
                         {idx + 1}
                       </TableCell>
-
-                      {/* Player */}
                       <TableCell>
                         <p
                           className="text-sm font-bold"
@@ -492,8 +437,6 @@ export default function AdminPanel() {
                           {order.email}
                         </p>
                       </TableCell>
-
-                      {/* Items */}
                       <TableCell>
                         <div className="space-y-0.5">
                           {order.items.map((item, j) => (
@@ -510,8 +453,6 @@ export default function AdminPanel() {
                           ))}
                         </div>
                       </TableCell>
-
-                      {/* Amount */}
                       <TableCell>
                         <span
                           className="text-sm font-bold"
@@ -520,8 +461,6 @@ export default function AdminPanel() {
                           ₹{Number(order.totalINR).toLocaleString("en-IN")}
                         </span>
                       </TableCell>
-
-                      {/* Method */}
                       <TableCell>
                         <span
                           className="text-xs px-2 py-0.5 rounded-full"
@@ -534,21 +473,16 @@ export default function AdminPanel() {
                           {order.paymentMethod}
                         </span>
                       </TableCell>
-
-                      {/* Date */}
                       <TableCell
                         className="text-xs whitespace-nowrap"
                         style={{ color: "oklch(50% 0.04 250)" }}
                       >
                         {formatDate(order.timestamp)}
                       </TableCell>
-
-                      {/* Screenshot */}
                       <TableCell>
                         {order.screenshotBase64 ? (
                           <button
                             type="button"
-                            data-ocid="admin.orders.screenshot.button"
                             onClick={() =>
                               setPreviewImage(order.screenshotBase64)
                             }
@@ -577,8 +511,6 @@ export default function AdminPanel() {
                           </span>
                         )}
                       </TableCell>
-
-                      {/* Status / Verify */}
                       <TableCell>
                         {order.verified ? (
                           <span
@@ -593,7 +525,6 @@ export default function AdminPanel() {
                           </span>
                         ) : (
                           <Button
-                            data-ocid="admin.orders.verify.button"
                             size="sm"
                             onClick={() => handleMarkVerified(order)}
                             className="h-7 text-xs px-3"
@@ -616,7 +547,7 @@ export default function AdminPanel() {
         </div>
       </main>
 
-      {/* Fullscreen screenshot preview overlay */}
+      {/* Fullscreen screenshot preview */}
       <AnimatePresence>
         {previewImage && (
           <motion.div
@@ -625,7 +556,6 @@ export default function AdminPanel() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            data-ocid="admin.screenshot.modal"
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ background: "oklch(0% 0 0 / 0.9)" }}
             onClick={() => setPreviewImage(null)}
@@ -640,7 +570,6 @@ export default function AdminPanel() {
             >
               <button
                 type="button"
-                data-ocid="admin.screenshot.close_button"
                 onClick={() => setPreviewImage(null)}
                 className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110"
                 style={{

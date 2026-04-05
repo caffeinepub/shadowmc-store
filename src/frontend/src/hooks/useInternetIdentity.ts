@@ -187,13 +187,11 @@ export function InternetIdentityProvider({
     }
 
     const currentIdentity = authClient.getIdentity();
-    // If user already has a valid session, just resume it instead of re-opening the II popup
     if (
       !currentIdentity.getPrincipal().isAnonymous() &&
       currentIdentity instanceof DelegationIdentity &&
       isDelegationValid(currentIdentity.getDelegation())
     ) {
-      // Already authenticated -- just surface the identity, don't open II popup
       handleLoginSuccess();
       return;
     }
