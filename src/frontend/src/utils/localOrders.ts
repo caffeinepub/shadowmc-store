@@ -48,3 +48,13 @@ export function updateLocalOrderBackendId(
     // ignore storage errors
   }
 }
+
+export function deleteLocalOrder(orderId: string): void {
+  try {
+    const existing = loadLocalOrders();
+    const updated = existing.filter((o) => o.id !== orderId);
+    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updated));
+  } catch {
+    // ignore storage errors
+  }
+}

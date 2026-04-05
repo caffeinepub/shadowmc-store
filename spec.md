@@ -1,23 +1,32 @@
 # ShadowMC Store
 
 ## Current State
-The store is fully featured with ranks, coin bundles, UPI payment flow, admin panel, purchase history, and product suggestions. The critical unresolved bug is that `createRawActorWithConfig` is called by AdminPanel, PaymentModal, and PurchaseHistory but was never defined in `config.ts` — causing all order submissions and retrievals to crash silently with "createRawActorWithConfig is not a function". Additionally, Internet Identity login was broken: when a user already had a valid session and clicked Login again, the code called `setErrorMessage("User is already authenticated")` instead of resuming the session, permanently setting login status to `loginError`.
+- Full Minecraft store with ranks, coins, UPI/manual payment flow, admin panel, purchase history
+- Admin panel uses 4-digit PIN (1313), shows orders from backend
+- `createRawActorWithConfig` is imported and called in AdminPanel.tsx, PaymentModal.tsx, and PurchaseHistory.tsx but **does NOT exist in config.ts** — this is the root cause of all silent backend call failures
+- Internet Identity login has a bug: when user already has a valid session, `login()` calls `setErrorMessage('User is already authenticated')` which sets loginStatus to `loginError` and freezes the button instead of just logging them in
+- Purchase History shows local orders with delete button missing
+- Post-order popup exists but is small
 
 ## Requested Changes (Diff)
 
 ### Add
-- `createRawActorWithConfig()` function in `config.ts` — creates a raw Candid actor using `Actor.createActor` with `idlFactory` and an anonymous `HttpAgent`. This bypasses the typed wrapper and exposes `submitManualOrder`, `getManualOrders`, and `markManualOrderVerified` directly.
-- `RawBackendActor` TypeScript interface in `config.ts` to type the raw actor's return value.
+- `createRawActorWithConfig` function in `config.ts` that uses `Actor.createActor` with the raw `idlFactory` from `./declarations/backend.did` — this gives direct access to `submitManualOrder`, `getManualOrders`, `markManualOrderVerified`
+- Delete button in Purchase History next to each local order (removes from localStorage)
+- Bigger, more visible post-order popup in PaymentModal
 
 ### Modify
-- `config.ts`: Add `Actor` to the `@icp-sdk/core/agent` import and add `idlFactory` import from `./declarations/backend.did`. Implement `createRawActorWithConfig` as a new exported async function.
-- `useInternetIdentity.ts`: In the `login()` callback, change the "already authenticated" branch from calling `setErrorMessage("User is already authenticated")` to calling `handleLoginSuccess()` so existing sessions are recognized and the user is logged in immediately.
+- `config.ts`: Add `createRawActorWithConfig` export that bypasses the typed Backend wrapper
+- `useInternetIdentity.ts`: Fix the `login()` function — when user already has a valid delegation, call `handleLoginSuccess()` instead of `setErrorMessage('User is already authenticated')`
+- `PurchaseHistory.tsx`: Add delete button per order with a `deleteLocalOrder` utility call
+- `PaymentModal.tsx`: Make the `showHistoryPopup` larger (bigger font, padding, and more visible)
 
 ### Remove
-- Nothing removed.
+- Nothing removed
 
 ## Implementation Plan
-1. Add `createRawActorWithConfig` to `config.ts` with correct imports and implementation.
-2. Fix `login()` in `useInternetIdentity.ts` to call `handleLoginSuccess()` when user already has a valid delegation.
-3. Run frontend validation (lint + typecheck + build).
-4. Deploy.
+1. Add `createRawActorWithConfig` to `config.ts` using `Actor.createActor` + raw `idlFactory`
+2. Fix `useInternetIdentity.ts` login() to call `handleLoginSuccess()` on valid existing session
+3. Add `deleteLocalOrder(id: string)` to `localOrders.ts`
+4. Update `PurchaseHistory.tsx` to show delete button and call `deleteLocalOrder`
+5. Update `PaymentModal.tsx` to make the post-order popup larger and more visible

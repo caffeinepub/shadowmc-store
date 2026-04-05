@@ -4,9 +4,10 @@ import {
   type CreateActorOptions,
   ExternalBlob,
 } from "./backend";
- import { Actor, HttpAgent } from "@icp-sdk/core/agent";
 import { StorageClient } from "./utils/StorageClient";
-import { idlFactory } from "./declarations/backend.did.js";
+import { Actor, HttpAgent } from "@icp-sdk/core/agent";
+import { idlFactory } from "./declarations/backend.did";
+import type { _SERVICE } from "./declarations/backend.did.d.ts";
 
 const DEFAULT_STORAGE_GATEWAY_URL = "https://blob.caffeine.ai";
 const DEFAULT_BUCKET_NAME = "default-bucket";
@@ -180,23 +181,24 @@ export async function createActorWithConfig(
 }
 
 /**
- * Creates a raw ICP actor that calls the backend canister directly using the
- * Candid IDL factory. Unlike createActorWithConfig, this bypasses the typed
- * wrapper so all backend methods (submitManualOrder, getManualOrders,
- * markManualOrderVerified, etc.) are callable without type errors.
+ * Creates a raw Candid actor that directly exposes all backend methods including
+ * submitManualOrder, getManualOrders, and markManualOrderVerified.
  *
- * Used by: AdminPanel, PaymentModal, PurchaseHistory
+ * This bypasses the typed Backend wrapper class which does NOT expose these methods.
+ * Use this for manual UPI order operations.
  */
-export async function createRawActorWithConfig() {
+export async function createRawActorWithConfig(): Promise<_SERVICE> {
   const config = await loadConfig();
   const agent = new HttpAgent({
     host: config.backend_host,
   });
   if (config.backend_host?.includes("localhost")) {
-    await agent.fetchRootKey().catch(() => {});
+    await agent.fetchRootKey().catch((err) => {
+      console.warn("Unable to fetch root key for raw actor");
+      console.error(err);
+    });
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return Actor.createActor<any>(idlFactory, {
+  return Actor.createActor<_SERVICE>(idlFactory, {
     agent,
     canisterId: config.backend_canister_id,
   });

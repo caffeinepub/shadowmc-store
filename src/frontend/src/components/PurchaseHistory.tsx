@@ -1,7 +1,14 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Coins, Loader2, Package, ShieldCheck } from "lucide-react";
-import { motion } from "motion/react";
+import {
+  Clock,
+  Coins,
+  Loader2,
+  Package,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { Purchase } from "../backend";
 import { createRawActorWithConfig } from "../config";
@@ -10,6 +17,7 @@ import { useCallerPurchases } from "../hooks/useQueries";
 import {
   LOCAL_ORDERS_KEY,
   type LocalOrder,
+  deleteLocalOrder,
   loadLocalOrders,
 } from "../utils/localOrders";
 
@@ -29,6 +37,8 @@ export default function PurchaseHistory() {
   const { data: stripePurchases, isLoading } = useCallerPurchases();
   const [localOrders, setLocalOrders] = useState<LocalOrder[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  // Track which order IDs are in the process of being deleted (for animation)
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   // Load local manual orders and sync verified status from backend
   useEffect(() => {
@@ -36,7 +46,6 @@ export default function PurchaseHistory() {
       const orders = loadLocalOrders();
       setLocalOrders(orders);
 
-      // If there are any orders with a backendId, fetch backend orders to sync verified status
       const ordersWithBackendId = orders.filter(
         (o) => o.backendId !== undefined,
       );
@@ -47,13 +56,11 @@ export default function PurchaseHistory() {
         const rawActor = await createRawActorWithConfig();
         const backendOrders = await rawActor.getManualOrders();
 
-        // Build a map of backendId -> verified status
         const verifiedMap = new Map<number, boolean>();
         for (const bo of backendOrders) {
           verifiedMap.set(Number(bo.id), bo.verified);
         }
 
-        // Merge verified status from backend into local orders
         const mergedOrders = orders.map((order) => {
           if (order.backendId !== undefined) {
             const backendVerified = verifiedMap.get(order.backendId);
@@ -64,7 +71,6 @@ export default function PurchaseHistory() {
           return order;
         });
 
-        // Persist the synced verified status back to localStorage so it sticks after refresh
         try {
           localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(mergedOrders));
         } catch {
@@ -81,6 +87,21 @@ export default function PurchaseHistory() {
 
     syncOrders();
   }, []);
+
+  const handleDeleteOrder = (orderId: string) => {
+    // Mark as deleting to trigger exit animation
+    setDeletingIds((prev) => new Set(prev).add(orderId));
+    // After animation (300ms), actually remove from state and storage
+    setTimeout(() => {
+      deleteLocalOrder(orderId);
+      setLocalOrders((prev) => prev.filter((o) => o.id !== orderId));
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
+    }, 320);
+  };
 
   const hasLocalOrders = localOrders.length > 0;
   const hasStripePurchases = (stripePurchases?.length ?? 0) > 0;
@@ -121,7 +142,7 @@ export default function PurchaseHistory() {
           </p>
         </motion.div>
 
-        {/* Manual / UPI orders — always visible (stored locally on device) */}
+        {/* Manual / UPI orders */}
         {hasLocalOrders && (
           <div className="mb-8">
             <p
@@ -130,86 +151,160 @@ export default function PurchaseHistory() {
             >
               UPI / Manual Payment Orders
             </p>
-            <div className="space-y-3">
-              {[...localOrders]
-                .sort((a, b) => b.timestamp - a.timestamp)
-                .map((order, index) => (
-                  <motion.div
-                    key={order.id}
-                    data-ocid={`history.local.item.${index + 1}`}
-                    className="flex items-start gap-4 p-4 rounded-xl border"
-                    style={{
-                      borderColor: "oklch(25% 0.04 250)",
-                      background: "oklch(14% 0.025 250)",
-                    }}
-                    initial={{ opacity: 0, y: 10 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                      style={{
-                        background: "oklch(78% 0.18 195 / 0.1)",
-                        border: "1px solid oklch(78% 0.18 195 / 0.3)",
-                      }}
-                    >
-                      <Package
-                        className="w-5 h-5"
-                        style={{ color: "oklch(78% 0.18 195)" }}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground text-sm mb-0.5">
-                        {order.items.map((i) => i.name).join(", ")}
-                      </p>
-                      <p
-                        className="text-xs"
-                        style={{ color: "oklch(55% 0.05 250)" }}
-                      >
-                        Player:{" "}
-                        <span style={{ color: "oklch(78% 0.18 195)" }}>
-                          {order.username}
-                        </span>
-                      </p>
-                      <div
-                        className="flex items-center gap-1 text-xs mt-0.5"
-                        style={{ color: "oklch(50% 0.04 250)" }}
-                      >
-                        <Clock className="w-3 h-3" />
-                        {formatDate(order.timestamp)} &middot;{" "}
-                        {order.paymentMethod}
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-semibold text-foreground text-sm">
-                        ₹{order.totalINR.toLocaleString("en-IN")}
-                      </p>
-                      <Badge
-                        variant="secondary"
-                        className="text-xs mt-1"
+            <div className="space-y-3 overflow-hidden">
+              <AnimatePresence initial={false}>
+                {[...localOrders]
+                  .sort((a, b) => b.timestamp - a.timestamp)
+                  .map((order, index) => {
+                    const isDeleting = deletingIds.has(order.id);
+                    return (
+                      <motion.div
+                        key={order.id}
+                        data-ocid={`history.local.item.${index + 1}`}
+                        layout
+                        initial={{ opacity: 0, x: -40, scale: 0.97 }}
+                        animate={
+                          isDeleting
+                            ? {
+                                x: 120,
+                                opacity: 0,
+                                scale: 0.93,
+                                filter: "blur(2px)",
+                              }
+                            : {
+                                opacity: 1,
+                                x: 0,
+                                scale: 1,
+                                filter: "blur(0px)",
+                              }
+                        }
+                        exit={{
+                          opacity: 0,
+                          x: 120,
+                          scale: 0.93,
+                          height: 0,
+                          marginBottom: 0,
+                        }}
+                        transition={{
+                          duration: 0.3,
+                          ease: [0.32, 0, 0.67, 0],
+                          layout: { duration: 0.25, ease: "easeOut" },
+                        }}
+                        className="flex items-start gap-4 p-4 rounded-xl border relative overflow-hidden"
                         style={{
-                          background: order.verified
-                            ? "oklch(20% 0.04 145)"
-                            : "oklch(20% 0.04 60)",
-                          color: order.verified
-                            ? "oklch(72% 0.18 145)"
-                            : "oklch(72% 0.18 60)",
-                          border: order.verified
-                            ? "1px solid oklch(45% 0.15 145 / 0.3)"
-                            : "1px solid oklch(55% 0.18 60 / 0.3)",
+                          borderColor: isDeleting
+                            ? "oklch(55% 0.18 25 / 0.4)"
+                            : "oklch(25% 0.04 250)",
+                          background: isDeleting
+                            ? "oklch(16% 0.04 25)"
+                            : "oklch(14% 0.025 250)",
+                          transition: "background 0.15s, border-color 0.15s",
                         }}
                       >
-                        {order.verified ? "✓ Verified" : "Pending Review"}
-                      </Badge>
-                    </div>
-                  </motion.div>
-                ))}
+                        {/* Red swipe overlay that appears on delete */}
+                        {isDeleting && (
+                          <motion.div
+                            className="absolute inset-0 rounded-xl pointer-events-none"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            style={{
+                              background:
+                                "linear-gradient(to right, transparent, oklch(55% 0.22 25 / 0.12))",
+                            }}
+                          />
+                        )}
+
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                          style={{
+                            background: "oklch(78% 0.18 195 / 0.1)",
+                            border: "1px solid oklch(78% 0.18 195 / 0.3)",
+                          }}
+                        >
+                          <Package
+                            className="w-5 h-5"
+                            style={{ color: "oklch(78% 0.18 195)" }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground text-sm mb-0.5">
+                            {order.items.map((i) => i.name).join(", ")}
+                          </p>
+                          <p
+                            className="text-xs"
+                            style={{ color: "oklch(55% 0.05 250)" }}
+                          >
+                            Player:{" "}
+                            <span style={{ color: "oklch(78% 0.18 195)" }}>
+                              {order.username}
+                            </span>
+                          </p>
+                          <div
+                            className="flex items-center gap-1 text-xs mt-0.5"
+                            style={{ color: "oklch(50% 0.04 250)" }}
+                          >
+                            <Clock className="w-3 h-3" />
+                            {formatDate(order.timestamp)} &middot;{" "}
+                            {order.paymentMethod}
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
+                          <p className="font-semibold text-foreground text-sm">
+                            ₹{order.totalINR.toLocaleString("en-IN")}
+                          </p>
+                          <Badge
+                            variant="secondary"
+                            className="text-xs"
+                            style={{
+                              background: order.verified
+                                ? "oklch(20% 0.04 145)"
+                                : "oklch(20% 0.04 60)",
+                              color: order.verified
+                                ? "oklch(72% 0.18 145)"
+                                : "oklch(72% 0.18 60)",
+                              border: order.verified
+                                ? "1px solid oklch(45% 0.15 145 / 0.3)"
+                                : "1px solid oklch(55% 0.18 60 / 0.3)",
+                            }}
+                          >
+                            {order.verified ? "✓ Verified" : "Pending Review"}
+                          </Badge>
+                          {/* Delete button */}
+                          <motion.button
+                            type="button"
+                            data-ocid={`history.local.delete.${index + 1}`}
+                            onClick={() =>
+                              !isDeleting && handleDeleteOrder(order.id)
+                            }
+                            disabled={isDeleting}
+                            whileHover={{ scale: 1.08 }}
+                            whileTap={{ scale: 0.93 }}
+                            className="flex items-center gap-1 text-xs mt-1 px-2 py-1 rounded-lg transition-colors"
+                            style={{
+                              color: isDeleting
+                                ? "oklch(65% 0.22 25)"
+                                : "oklch(55% 0.18 25)",
+                              background: isDeleting
+                                ? "oklch(22% 0.05 25)"
+                                : "oklch(18% 0.03 25 / 0)",
+                              border: "1px solid oklch(45% 0.18 25 / 0.25)",
+                              cursor: isDeleting ? "default" : "pointer",
+                            }}
+                            title="Remove from history"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            {isDeleting ? "Removing..." : "Delete"}
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+              </AnimatePresence>
             </div>
           </div>
         )}
 
-        {/* Stripe purchases — only when logged in via Internet Identity */}
+        {/* Stripe purchases -- only when logged in via Internet Identity */}
         {isLoggedIn && (
           <div>
             {hasLocalOrders && (
@@ -313,7 +408,7 @@ export default function PurchaseHistory() {
           </div>
         )}
 
-        {/* Empty state — no local orders and not logged in */}
+        {/* Empty state */}
         {!hasLocalOrders && !isLoggedIn && (
           <div
             data-ocid="history.empty_state"
@@ -348,7 +443,7 @@ export default function PurchaseHistory() {
           </div>
         )}
 
-        {/* Show login prompt if there are local orders but user is not logged in (for Stripe orders) */}
+        {/* Login prompt when local orders exist */}
         {hasLocalOrders && !isLoggedIn && (
           <div
             className="mt-6 rounded-xl border p-4 text-center"
