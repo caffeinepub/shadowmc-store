@@ -6,8 +6,7 @@ import {
 } from "./backend";
 import { StorageClient } from "./utils/StorageClient";
 import { HttpAgent, Actor } from "@icp-sdk/core/agent";
-import { idlFactory } from "./declarations/backend.did";
-import type { _SERVICE } from "./declarations/backend.did";
+import { idlFactory } from "./declarations/backend.did.js";
 
 const DEFAULT_STORAGE_GATEWAY_URL = "https://blob.caffeine.ai";
 const DEFAULT_BUCKET_NAME = "default-bucket";
@@ -101,8 +100,6 @@ async function maybeLoadMockBackend(): Promise<backendInterface | null> {
   }
 
   try {
-    // If VITE_USE_MOCK is enabled, try to load a mock backend module *if it exists*.
-    // We use import.meta.glob so builds don't fail when the mock file is absent.
     const mockModules = import.meta.glob("./mocks/backend.{ts,tsx,js,jsx}");
 
     const path = Object.keys(mockModules)[0];
@@ -121,7 +118,6 @@ async function maybeLoadMockBackend(): Promise<backendInterface | null> {
 export async function createActorWithConfig(
   options?: CreateActorOptions,
 ): Promise<backendInterface> {
-  // Attempt to load mock backend if enabled
   const mock = await maybeLoadMockBackend();
   if (mock) {
     return mock;
@@ -180,25 +176,26 @@ export async function createActorWithConfig(
   );
 }
 
-/**
- * Creates a raw Candid actor that directly exposes all backend methods.
- * Use this when you need to call backend methods that are not exposed
- * through the typed Backend wrapper (e.g. getManualOrders, submitManualOrder).
- */
-export async function createRawActorWithConfig(): Promise<_SERVICE> {
+// Raw actor for direct Candid calls (used by AdminPanel, PaymentModal, PurchaseHistory)
+// This bypasses the typed wrapper so methods like getManualOrders, submitManualOrder,
+// and markManualOrderVerified are always available.
+export async function createRawActorWithConfig(
+  identity?: unknown,
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any> {
   const config = await loadConfig();
-  const agent = new HttpAgent({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const agentOptions: any = {
     host: config.backend_host,
-  });
-  if (config.backend_host?.includes("localhost")) {
-    await agent.fetchRootKey().catch((err) => {
-      console.warn(
-        "Unable to fetch root key. Check to ensure that your local replica is running",
-      );
-      console.error(err);
-    });
+  };
+  if (identity) {
+    agentOptions.identity = identity;
   }
-  return Actor.createActor<_SERVICE>(idlFactory, {
+  const agent = new HttpAgent(agentOptions);
+  if (config.backend_host?.includes("localhost")) {
+    await agent.fetchRootKey().catch(() => {});
+  }
+  return Actor.createActor(idlFactory, {
     agent,
     canisterId: config.backend_canister_id,
   });
