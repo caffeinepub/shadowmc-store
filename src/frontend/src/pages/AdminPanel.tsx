@@ -7,16 +7,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { LogOut, Package, RefreshCw, Shield, Users, X } from "lucide-react";
+import {
+  Eye,
+  LogOut,
+  Package,
+  RefreshCw,
+  Shield,
+  Users,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { createRawActorWithConfig } from "../config";
-import type { ManualOrder } from "../declarations/backend.did.d.ts";
+import type { ManualOrderLite } from "../declarations/backend.did.d.ts";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
-const _ADMIN_PRINCIPAL = "rayyan.khan20125@gmail.com";
-
-type Order = ManualOrder;
+type Order = ManualOrderLite;
 
 function formatDate(ts: bigint): string {
   return new Date(Number(ts) / 1_000_000).toLocaleString("en-IN", {
@@ -34,7 +40,9 @@ export default function AdminPanel() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [accessDenied, setAccessDenied] = useState(false);
+  const [loadingScreenshot, setLoadingScreenshot] = useState<bigint | null>(
+    null,
+  );
 
   const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
 
@@ -42,7 +50,8 @@ export default function AdminPanel() {
     setIsLoading(true);
     try {
       const rawActor = await createRawActorWithConfig();
-      const result = (await rawActor.getManualOrders()) as Order[];
+      // Use the lite version -- no screenshots in the list response
+      const result = (await rawActor.getManualOrdersLite()) as Order[];
       const sorted = [...result].sort(
         (a, b) => Number(b.timestamp) - Number(a.timestamp),
       );
@@ -56,8 +65,6 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      // All logged-in users can access the admin panel (owner only knows the URL)
-      setAccessDenied(false);
       fetchOrders();
     }
   }, [isAuthenticated, fetchOrders]);
@@ -65,7 +72,24 @@ export default function AdminPanel() {
   const handleLogout = () => {
     clear();
     setOrders([]);
-    setAccessDenied(false);
+  };
+
+  const handleViewScreenshot = async (orderId: bigint) => {
+    setLoadingScreenshot(orderId);
+    try {
+      const rawActor = await createRawActorWithConfig();
+      const screenshot = (await rawActor.getOrderScreenshot(orderId)) as string;
+      if (screenshot) {
+        setPreviewImage(screenshot);
+      } else {
+        alert("No screenshot found for this order.");
+      }
+    } catch (err) {
+      console.error("Failed to fetch screenshot:", err);
+      alert("Failed to load screenshot.");
+    } finally {
+      setLoadingScreenshot(null);
+    }
   };
 
   const handleMarkVerified = async (order: Order) => {
@@ -94,41 +118,6 @@ export default function AdminPanel() {
             style={{ color: "oklch(78% 0.18 195)" }}
           />
           <p style={{ color: "oklch(55% 0.05 250)" }}>Initializing...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── ACCESS DENIED ────────────────────────────────────────────────────────
-  if (accessDenied) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center p-4"
-        style={{ background: "oklch(8% 0.02 250)" }}
-      >
-        <div
-          className="w-full max-w-sm rounded-2xl p-8 text-center"
-          style={{
-            background: "oklch(12% 0.025 250)",
-            border: "1px solid oklch(22% 0.04 250)",
-          }}
-        >
-          <Shield
-            className="w-12 h-12 mx-auto mb-4"
-            style={{ color: "oklch(65% 0.2 25)" }}
-          />
-          <h1
-            className="text-xl font-bold mb-2"
-            style={{ color: "oklch(65% 0.2 25)" }}
-          >
-            Access Denied
-          </h1>
-          <p className="text-sm mb-6" style={{ color: "oklch(50% 0.05 250)" }}>
-            This admin panel is restricted to the store owner only.
-          </p>
-          <Button onClick={handleLogout} variant="ghost" size="sm">
-            Log out
-          </Button>
         </div>
       </div>
     );
@@ -345,8 +334,8 @@ export default function AdminPanel() {
               className="text-xs mt-0.5"
               style={{ color: "oklch(48% 0.04 250)" }}
             >
-              Newest orders first — click screenshot thumbnail to view full
-              image
+              Newest orders first — click "View" to load a player's payment
+              screenshot
             </p>
           </div>
 
@@ -480,28 +469,25 @@ export default function AdminPanel() {
                         {formatDate(order.timestamp)}
                       </TableCell>
                       <TableCell>
-                        {order.screenshotBase64 ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPreviewImage(order.screenshotBase64)
-                            }
-                            className="block transition-all hover:opacity-80 hover:scale-105 rounded overflow-hidden"
+                        {order.hasScreenshot ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleViewScreenshot(order.id)}
+                            disabled={loadingScreenshot === order.id}
+                            className="h-7 text-xs px-2 flex items-center gap-1"
                             style={{
-                              border: "1px solid oklch(35% 0.06 250)",
+                              color: "oklch(72% 0.14 195)",
+                              border: "1px solid oklch(45% 0.12 195 / 0.3)",
                             }}
                           >
-                            <img
-                              src={order.screenshotBase64}
-                              alt="Payment proof"
-                              className="object-cover"
-                              style={{
-                                width: "48px",
-                                height: "60px",
-                                objectFit: "cover",
-                              }}
-                            />
-                          </button>
+                            {loadingScreenshot === order.id ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Eye className="w-3 h-3" />
+                            )}
+                            View
+                          </Button>
                         ) : (
                           <span
                             className="text-xs"

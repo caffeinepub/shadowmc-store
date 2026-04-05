@@ -99,6 +99,19 @@ actor {
     verified : Bool;
   };
 
+  // Lite version without screenshot data (to avoid response size limit)
+  public type ManualOrderLite = {
+    id : Nat;
+    timestamp : Time.Time;
+    username : Text;
+    email : Text;
+    items : [ManualOrderItem];
+    totalINR : Nat;
+    paymentMethod : Text;
+    verified : Bool;
+    hasScreenshot : Bool;
+  };
+
   var storeConfig : StoreConfig = {
     currency = "USD";
     rankDescription = "Awesome Minecraft ranks";
@@ -255,7 +268,37 @@ actor {
     orderId;
   };
 
-  // Get all manual orders (no auth -- admin panel uses PIN on frontend side)
+  // Get all manual orders WITHOUT screenshot data (small response)
+  public query func getManualOrdersLite() : async [ManualOrderLite] {
+    let result = List.empty<ManualOrderLite>();
+    for (order in manualOrders.values()) {
+      result.add({
+        id = order.id;
+        timestamp = order.timestamp;
+        username = order.username;
+        email = order.email;
+        items = order.items;
+        totalINR = order.totalINR;
+        paymentMethod = order.paymentMethod;
+        verified = order.verified;
+        hasScreenshot = order.screenshotBase64 != "";
+      });
+    };
+    result.toArray();
+  };
+
+  // Get screenshot for a specific order by ID (on-demand)
+  public query func getOrderScreenshot(orderId : Nat) : async Text {
+    for (order in manualOrders.values()) {
+      if (order.id == orderId) {
+        return order.screenshotBase64;
+      };
+    };
+    "";
+  };
+
+  // Legacy: Get all manual orders including screenshots (kept for compatibility)
+  // WARNING: This will fail if total screenshot data exceeds 3MB
   public query func getManualOrders() : async [ManualOrder] {
     manualOrders.toArray();
   };

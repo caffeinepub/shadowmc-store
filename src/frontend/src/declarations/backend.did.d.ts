@@ -31,6 +31,17 @@ export interface ManualOrder {
   'screenshotBase64' : string,
   'verified' : boolean,
 }
+export interface ManualOrderLite {
+  'id' : bigint,
+  'timestamp' : Time,
+  'username' : string,
+  'email' : string,
+  'items' : Array<ManualOrderItem>,
+  'totalINR' : bigint,
+  'paymentMethod' : string,
+  'verified' : boolean,
+  'hasScreenshot' : boolean,
+}
 export interface Product {
   'id' : bigint,
   'name' : string,
@@ -103,6 +114,8 @@ export interface _SERVICE {
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getManualOrders' : ActorMethod<[], Array<ManualOrder>>,
+  'getManualOrdersLite' : ActorMethod<[], Array<ManualOrderLite>>,
+  'getOrderScreenshot' : ActorMethod<[bigint], string>,
   'getPurchases' : ActorMethod<[], Array<Purchase>>,
   'getStore' : ActorMethod<[], StoreInfo>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,

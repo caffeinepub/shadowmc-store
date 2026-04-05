@@ -107,6 +107,17 @@ export const ManualOrder = IDL.Record({
   'screenshotBase64' : IDL.Text,
   'verified' : IDL.Bool,
 });
+export const ManualOrderLite = IDL.Record({
+  'id' : IDL.Nat,
+  'timestamp' : Time,
+  'username' : IDL.Text,
+  'email' : IDL.Text,
+  'items' : IDL.Vec(ManualOrderItem),
+  'totalINR' : IDL.Nat,
+  'paymentMethod' : IDL.Text,
+  'verified' : IDL.Bool,
+  'hasScreenshot' : IDL.Bool,
+});
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
@@ -122,6 +133,8 @@ export const idlService = IDL.Service({
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getManualOrders' : IDL.Func([], [IDL.Vec(ManualOrder)], ['query']),
+  'getManualOrdersLite' : IDL.Func([], [IDL.Vec(ManualOrderLite)], ['query']),
+  'getOrderScreenshot' : IDL.Func([IDL.Nat], [IDL.Text], ['query']),
   'getPurchases' : IDL.Func([], [IDL.Vec(Purchase)], ['query']),
   'getStore' : IDL.Func([], [StoreInfo], ['query']),
   'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
@@ -246,6 +259,17 @@ export const idlFactory = ({ IDL }) => {
     'screenshotBase64' : IDL.Text,
     'verified' : IDL.Bool,
   });
+  const ManualOrderLite = IDL.Record({
+    'id' : IDL.Nat,
+    'timestamp' : Time,
+    'username' : IDL.Text,
+    'email' : IDL.Text,
+    'items' : IDL.Vec(ManualOrderItem),
+    'totalINR' : IDL.Nat,
+    'paymentMethod' : IDL.Text,
+    'verified' : IDL.Bool,
+    'hasScreenshot' : IDL.Bool,
+  });
 
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
@@ -261,6 +285,8 @@ export const idlFactory = ({ IDL }) => {
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getManualOrders' : IDL.Func([], [IDL.Vec(ManualOrder)], ['query']),
+    'getManualOrdersLite' : IDL.Func([], [IDL.Vec(ManualOrderLite)], ['query']),
+    'getOrderScreenshot' : IDL.Func([IDL.Nat], [IDL.Text], ['query']),
     'getPurchases' : IDL.Func([], [IDL.Vec(Purchase)], ['query']),
     'getStore' : IDL.Func([], [StoreInfo], ['query']),
     'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
