@@ -7,7 +7,11 @@ import type { Purchase } from "../backend";
 import { createRawActorWithConfig } from "../config";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCallerPurchases } from "../hooks/useQueries";
-import { type LocalOrder, loadLocalOrders } from "../utils/localOrders";
+import {
+  LOCAL_ORDERS_KEY,
+  type LocalOrder,
+  loadLocalOrders,
+} from "../utils/localOrders";
 
 const INR_PER_USD = 92;
 
@@ -49,7 +53,7 @@ export default function PurchaseHistory() {
           verifiedMap.set(Number(bo.id), bo.verified);
         }
 
-        // Merge verified status from backend into local orders (in-memory only, don't persist)
+        // Merge verified status from backend into local orders
         const mergedOrders = orders.map((order) => {
           if (order.backendId !== undefined) {
             const backendVerified = verifiedMap.get(order.backendId);
@@ -59,6 +63,13 @@ export default function PurchaseHistory() {
           }
           return order;
         });
+
+        // Persist the synced verified status back to localStorage so it sticks after refresh
+        try {
+          localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(mergedOrders));
+        } catch {
+          // ignore storage errors
+        }
 
         setLocalOrders(mergedOrders);
       } catch (err) {
