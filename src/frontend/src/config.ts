@@ -4,8 +4,9 @@ import {
   type CreateActorOptions,
   ExternalBlob,
 } from "./backend";
+import { Actor, HttpAgent } from "@icp-sdk/core/agent";
+import { idlFactory, type _SERVICE } from "./declarations/backend.did";
 import { StorageClient } from "./utils/StorageClient";
-import { HttpAgent } from "@icp-sdk/core/agent";
 
 const DEFAULT_STORAGE_GATEWAY_URL = "https://blob.caffeine.ai";
 const DEFAULT_BUCKET_NAME = "default-bucket";
@@ -99,8 +100,6 @@ async function maybeLoadMockBackend(): Promise<backendInterface | null> {
   }
 
   try {
-    // If VITE_USE_MOCK is enabled, try to load a mock backend module *if it exists*.
-    // We use import.meta.glob so builds don't fail when the mock file is absent.
     const mockModules = import.meta.glob("./mocks/backend.{ts,tsx,js,jsx}");
 
     const path = Object.keys(mockModules)[0];
@@ -119,7 +118,6 @@ async function maybeLoadMockBackend(): Promise<backendInterface | null> {
 export async function createActorWithConfig(
   options?: CreateActorOptions,
 ): Promise<backendInterface> {
-  // Attempt to load mock backend if enabled
   const mock = await maybeLoadMockBackend();
   if (mock) {
     return mock;
@@ -178,18 +176,24 @@ export async function createActorWithConfig(
   );
 }
 
-// Raw actor for calling backend methods not exposed by the typed wrapper
-// (e.g. getManualOrders, submitManualOrder, markManualOrderVerified)
-export async function createRawActorWithConfig(): Promise<Record<string, (...args: unknown[]) => Promise<unknown>>> {
-  const { Actor, HttpAgent } = await import("@icp-sdk/core/agent");
-  const { idlFactory } = await import("./declarations/backend.did.js");
+/**
+ * Creates a raw Candid actor that directly exposes all backend methods including
+ * getManualOrders, submitManualOrder, and markManualOrderVerified.
+ * Uses Actor.createActor with the raw idlFactory, bypassing the typed wrapper.
+ */
+export async function createRawActorWithConfig(): Promise<_SERVICE> {
   const config = await loadConfig();
-  const agent = new HttpAgent({ host: config.backend_host });
+  const agent = new HttpAgent({
+    host: config.backend_host,
+  });
   if (config.backend_host?.includes("localhost")) {
-    await agent.fetchRootKey().catch(console.error);
+    await agent.fetchRootKey().catch((err) => {
+      console.warn("Unable to fetch root key for raw actor");
+      console.error(err);
+    });
   }
-  return Actor.createActor(idlFactory, {
+  return Actor.createActor<_SERVICE>(idlFactory, {
     agent,
     canisterId: config.backend_canister_id,
-  }) as Record<string, (...args: unknown[]) => Promise<unknown>>;
+  });
 }
