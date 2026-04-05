@@ -98,10 +98,10 @@ export default function Hero({ onNavigate }: HeroProps) {
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
             <img
-              src="/assets/generated/shadowmc-logo-transparent.dim_400x120.png"
+              src="/assets/shadow_mc_logo_with_pixelated_castle-019d5e56-2b4d-71ed-9b3e-9ea06d890a57.png"
               alt="ShadowMC"
-              className="mx-auto mb-6 w-auto object-contain"
-              style={{ maxHeight: "96px", maxWidth: "320px" }}
+              className="mx-auto mb-6 rounded-full object-cover"
+              style={{ width: "220px", height: "220px" }}
             />
           </motion.div>
         </div>

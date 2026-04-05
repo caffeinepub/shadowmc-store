@@ -178,16 +178,10 @@ export async function createActorWithConfig(
   );
 }
 
-export async function createRawActorWithConfig(): Promise<import("./declarations/backend.did")._SERVICE> {
-  const { Actor, HttpAgent } = await import("@icp-sdk/core/agent");
-  const { idlFactory } = await import("./declarations/backend.did");
+export async function createRawActorWithConfig() {
+  const { Actor } = await import("@icp-sdk/core/agent");
+  const { idlFactory } = await import("./declarations/backend.did.js");
   const config = await loadConfig();
-  const agent = new HttpAgent({ host: config.backend_host });
-  if (config.backend_host?.includes("localhost")) {
-    await agent.fetchRootKey().catch(() => {});
-  }
-  return Actor.createActor(idlFactory, {
-    agent,
-    canisterId: config.backend_canister_id,
-  });
+  const agent = await HttpAgent.create({ host: config.backend_host });
+  return Actor.createActor(idlFactory, { agent, canisterId: config.backend_canister_id });
 }
