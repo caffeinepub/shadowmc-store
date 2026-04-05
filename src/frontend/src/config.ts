@@ -5,8 +5,7 @@ import {
   ExternalBlob,
 } from "./backend";
 import { StorageClient } from "./utils/StorageClient";
-import { HttpAgent, Actor } from "@icp-sdk/core/agent";
-import { idlFactory } from "./declarations/backend.did.js";
+import { HttpAgent } from "@icp-sdk/core/agent";
 
 const DEFAULT_STORAGE_GATEWAY_URL = "https://blob.caffeine.ai";
 const DEFAULT_BUCKET_NAME = "default-bucket";
@@ -100,6 +99,8 @@ async function maybeLoadMockBackend(): Promise<backendInterface | null> {
   }
 
   try {
+    // If VITE_USE_MOCK is enabled, try to load a mock backend module *if it exists*.
+    // We use import.meta.glob so builds don't fail when the mock file is absent.
     const mockModules = import.meta.glob("./mocks/backend.{ts,tsx,js,jsx}");
 
     const path = Object.keys(mockModules)[0];
@@ -118,6 +119,7 @@ async function maybeLoadMockBackend(): Promise<backendInterface | null> {
 export async function createActorWithConfig(
   options?: CreateActorOptions,
 ): Promise<backendInterface> {
+  // Attempt to load mock backend if enabled
   const mock = await maybeLoadMockBackend();
   if (mock) {
     return mock;
@@ -176,27 +178,51 @@ export async function createActorWithConfig(
   );
 }
 
-// Raw actor for direct Candid calls (used by AdminPanel, PaymentModal, PurchaseHistory)
-// This bypasses the typed wrapper so methods like getManualOrders, submitManualOrder,
-// and markManualOrderVerified are always available.
-export async function createRawActorWithConfig(
-  identity?: unknown,
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-): Promise<any> {
+// Raw actor interface for manual order methods not included in the typed backendInterface
+export interface RawManualActor {
+  submitManualOrder(
+    username: string,
+    email: string,
+    items: Array<{ name: string; quantity: bigint; priceINR: bigint }>,
+    totalINR: bigint,
+    paymentMethod: string,
+    screenshotBase64: string,
+  ): Promise<bigint>;
+  getManualOrders(): Promise<
+    Array<{
+      id: bigint;
+      timestamp: bigint;
+      username: string;
+      email: string;
+      items: Array<{ name: string; quantity: bigint; priceINR: bigint }>;
+      totalINR: bigint;
+      paymentMethod: string;
+      screenshotBase64: string;
+      verified: boolean;
+    }>
+  >;
+  markManualOrderVerified(orderId: bigint): Promise<boolean>;
+}
+
+/**
+ * Creates a raw Candid actor that directly exposes submitManualOrder,
+ * getManualOrders, and markManualOrderVerified -- bypassing the typed
+ * Backend wrapper which does not include these methods.
+ */
+export async function createRawActorWithConfig(): Promise<RawManualActor> {
+  const { Actor, HttpAgent } = await import("@icp-sdk/core/agent");
+  const { idlFactory } = await import("./declarations/backend.did");
   const config = await loadConfig();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const agentOptions: any = {
-    host: config.backend_host,
-  };
-  if (identity) {
-    agentOptions.identity = identity;
-  }
-  const agent = new HttpAgent(agentOptions);
+
+  const agent = new HttpAgent({ host: config.backend_host });
+
   if (config.backend_host?.includes("localhost")) {
     await agent.fetchRootKey().catch(() => {});
   }
-  return Actor.createActor(idlFactory, {
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return Actor.createActor<any>(idlFactory, {
     agent,
     canisterId: config.backend_canister_id,
-  });
+  }) as unknown as RawManualActor;
 }
