@@ -12,7 +12,21 @@ export default function CartSummaryBar() {
     0,
   );
   const hasCartItems = items.length > 0;
-  const username = userInfo.minecraftUsername;
+
+  // Resolve username: prefer context, then fall back to localStorage
+  const storedUsername = (() => {
+    if (userInfo.minecraftUsername) return userInfo.minecraftUsername;
+    try {
+      const raw = localStorage.getItem("shadowmc_user_info");
+      if (raw) {
+        const parsed = JSON.parse(raw) as { minecraftUsername?: string };
+        return parsed.minecraftUsername || "";
+      }
+    } catch {
+      /* ignore */
+    }
+    return "";
+  })();
 
   return (
     <div
@@ -59,12 +73,12 @@ export default function CartSummaryBar() {
         </div>
 
         {/* Username */}
-        {username ? (
+        {storedUsername ? (
           <span
             className="text-sm font-medium max-w-[120px] truncate"
             style={{ color: "oklch(65% 0.06 250)" }}
           >
-            {username}
+            {storedUsername}
           </span>
         ) : (
           <span
