@@ -9,16 +9,51 @@ export default function EntryPopup() {
   const [email, setEmail] = useState("");
   const [usernameError, setUsernameError] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [isBedrock, setIsBedrock] = useState(false);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const isFormValid =
     username.trim().length > 0 && emailRegex.test(email.trim());
 
+  const handleBedrockToggle = () => {
+    const newVal = !isBedrock;
+    setIsBedrock(newVal);
+    if (newVal && !username.startsWith(".")) {
+      setUsername(`.${username}`);
+    } else if (!newVal && username.startsWith(".")) {
+      setUsername(username.slice(1));
+    }
+  };
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value;
+    if (isBedrock) {
+      if (!val.startsWith(".")) val = `.${val}`;
+    }
+    setUsername(val);
+    if (usernameError) setUsernameError("");
+  };
+
+  const handleUsernameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isBedrock && (e.key === "Backspace" || e.key === "Delete")) {
+      const input = e.currentTarget;
+      const selStart = input.selectionStart ?? 0;
+      const selEnd = input.selectionEnd ?? 0;
+      if (selStart <= 1 && selEnd <= 1) {
+        e.preventDefault();
+      }
+      if (selStart === 0 && selEnd === input.value.length) {
+        e.preventDefault();
+        setUsername(".");
+      }
+    }
+  };
+
   const handleSubmit = () => {
     let valid = true;
 
-    if (!username.trim()) {
+    if (!username.trim() || (isBedrock && username.trim() === ".")) {
       setUsernameError("Minecraft username is required");
       valid = false;
     } else {
@@ -139,12 +174,12 @@ export default function EntryPopup() {
               <Input
                 id="entry-username"
                 data-ocid="entry.username.input"
-                placeholder="Your Minecraft username"
+                placeholder={
+                  isBedrock ? ".YourUsername" : "Your Minecraft username"
+                }
                 value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value);
-                  if (usernameError) setUsernameError("");
-                }}
+                onChange={handleUsernameChange}
+                onKeyDown={handleUsernameKeyDown}
                 autoComplete="off"
                 spellCheck={false}
                 className="text-sm h-11"
@@ -163,6 +198,65 @@ export default function EntryPopup() {
                   style={{ color: "oklch(65% 0.2 25)" }}
                 >
                   {usernameError}
+                </p>
+              )}
+            </div>
+
+            {/* Bedrock Edition Toggle */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p
+                    className="text-xs font-semibold"
+                    style={{ color: "oklch(68% 0.08 250)" }}
+                  >
+                    Bedrock Edition
+                  </p>
+                  <p
+                    className="text-xs"
+                    style={{ color: "oklch(45% 0.04 250)" }}
+                  >
+                    Enable if you play on Bedrock/MCPE
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  data-ocid="entry.bedrock.toggle"
+                  onClick={handleBedrockToggle}
+                  aria-pressed={isBedrock}
+                  className="relative flex-shrink-0"
+                  style={{
+                    width: "44px",
+                    height: "24px",
+                    borderRadius: "12px",
+                    background: isBedrock
+                      ? "oklch(65% 0.22 145)"
+                      : "oklch(25% 0.03 250)",
+                    border: "1px solid oklch(35% 0.04 250)",
+                    transition: "background 0.25s ease",
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: "2px",
+                      left: isBedrock ? "22px" : "2px",
+                      width: "18px",
+                      height: "18px",
+                      borderRadius: "50%",
+                      background: "white",
+                      transition:
+                        "left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                      boxShadow: "0 1px 4px oklch(0% 0 0 / 0.4)",
+                    }}
+                  />
+                </button>
+              </div>
+              {isBedrock && (
+                <p className="text-xs" style={{ color: "oklch(65% 0.18 145)" }}>
+                  ✓ Dot (.) will be automatically added before your username
                 </p>
               )}
             </div>

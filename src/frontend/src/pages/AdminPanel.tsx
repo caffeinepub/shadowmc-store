@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Shield,
   Trash2,
+  TrendingUp,
   Users,
   X,
 } from "lucide-react";
@@ -24,6 +25,7 @@ import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { createRawActorWithConfig } from "../rawActor";
 
 type Order = ManualOrderLite;
+type SidebarTab = "orders" | "revenue" | "usernames";
 
 function formatDate(ts: bigint): string {
   return new Date(Number(ts) / 1_000_000).toLocaleString("en-IN", {
@@ -45,6 +47,7 @@ export default function AdminPanel() {
     null,
   );
   const [actionLoading, setActionLoading] = useState<bigint | null>(null);
+  const [activeTab, setActiveTab] = useState<SidebarTab>("orders");
 
   const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
 
@@ -141,7 +144,26 @@ export default function AdminPanel() {
   const totalRevenue = orders
     .filter((o) => !o.blocked)
     .reduce((sum, o) => sum + Number(o.totalINR), 0);
-  const uniquePlayers = new Set(orders.map((o) => o.username)).size;
+  const verifiedRevenue = orders
+    .filter((o) => o.verified && !o.blocked)
+    .reduce((sum, o) => sum + Number(o.totalINR), 0);
+  const pendingRevenue = orders
+    .filter((o) => !o.verified && !o.blocked)
+    .reduce((sum, o) => sum + Number(o.totalINR), 0);
+  const uniquePlayerNames = [...new Set(orders.map((o) => o.username))];
+
+  // Player stats for usernames tab
+  const playerStats = orders.reduce(
+    (acc, o) => {
+      if (!acc[o.username])
+        acc[o.username] = { count: 0, lastOrder: o.timestamp };
+      acc[o.username].count++;
+      if (o.timestamp > acc[o.username].lastOrder)
+        acc[o.username].lastOrder = o.timestamp;
+      return acc;
+    },
+    {} as Record<string, { count: number; lastOrder: bigint }>,
+  );
 
   // ── LOADING ──────────────────────────────────────────────────────
   if (isInitializing) {
@@ -241,8 +263,11 @@ export default function AdminPanel() {
 
   // ── DASHBOARD ─────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen" style={{ background: "oklch(8% 0.02 250)" }}>
-      {/* Header */}
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: "oklch(8% 0.02 250)" }}
+    >
+      {/* Header — full width */}
       <header
         className="sticky top-0 z-40 flex items-center justify-between px-6 py-4"
         style={{
@@ -289,360 +314,597 @@ export default function AdminPanel() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Stats row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          {[
-            {
-              label: "Total Orders",
-              value: orders.length,
-              icon: Package,
-              color: "oklch(78% 0.18 195)",
-              bg: "oklch(18% 0.04 195)",
-            },
-            {
-              label: "Total Revenue",
-              value: `\u20b9${totalRevenue.toLocaleString("en-IN")}`,
-              icon: Shield,
-              color: "oklch(75% 0.18 145)",
-              bg: "oklch(18% 0.04 145)",
-            },
-            {
-              label: "Unique Players",
-              value: uniquePlayers,
-              icon: Users,
-              color: "oklch(78% 0.18 60)",
-              bg: "oklch(18% 0.04 60)",
-            },
-          ].map((stat) => (
+      {/* Body: sidebar + main */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <aside
+          className="flex-shrink-0 flex flex-col py-4"
+          style={{
+            width: "220px",
+            background: "oklch(10% 0.022 250)",
+            borderRight: "1px solid oklch(18% 0.03 250)",
+          }}
+        >
+          {/* Sidebar nav items */}
+          {(
+            [
+              {
+                id: "orders" as SidebarTab,
+                label: "Orders",
+                icon: Package,
+                stat: String(orders.length),
+                statColor: "oklch(78% 0.18 195)",
+              },
+              {
+                id: "revenue" as SidebarTab,
+                label: "Total Revenue",
+                icon: TrendingUp,
+                stat: `₹${totalRevenue.toLocaleString("en-IN")}`,
+                statColor: "oklch(75% 0.18 145)",
+              },
+              {
+                id: "usernames" as SidebarTab,
+                label: "Usernames",
+                icon: Users,
+                stat: String(uniquePlayerNames.length),
+                statColor: "oklch(78% 0.18 60)",
+              },
+            ] as const
+          ).map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                data-ocid={`admin.${item.id}.tab`}
+                onClick={() => setActiveTab(item.id)}
+                className="w-full text-left flex flex-col gap-0.5 transition-all"
+                style={{
+                  padding: "12px 16px",
+                  background: isActive
+                    ? "oklch(78% 0.18 195 / 0.1)"
+                    : "transparent",
+                  borderLeft: isActive
+                    ? "3px solid oklch(78% 0.18 195)"
+                    : "3px solid transparent",
+                  color: isActive
+                    ? "oklch(78% 0.18 195)"
+                    : "oklch(55% 0.05 250)",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <item.icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm font-semibold">{item.label}</span>
+                </div>
+                <span
+                  className="text-xs font-bold pl-6"
+                  style={{ color: item.statColor }}
+                >
+                  {item.stat}
+                </span>
+              </button>
+            );
+          })}
+        </aside>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-auto p-6">
+          {/* ORDERS TAB */}
+          {activeTab === "orders" && (
             <div
-              key={stat.label}
-              className="rounded-xl p-5 flex items-center gap-4"
+              className="rounded-xl overflow-hidden"
               style={{
                 background: "oklch(12% 0.025 250)",
                 border: "1px solid oklch(22% 0.04 250)",
               }}
             >
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: stat.bg }}
+                className="px-6 py-4"
+                style={{ borderBottom: "1px solid oklch(18% 0.03 250)" }}
               >
-                <stat.icon className="w-6 h-6" style={{ color: stat.color }} />
-              </div>
-              <div>
-                <p
-                  className="text-xs font-medium mb-1"
-                  style={{ color: "oklch(50% 0.05 250)" }}
+                <h2
+                  className="text-base font-bold"
+                  style={{ color: "oklch(90% 0.04 250)" }}
                 >
-                  {stat.label}
-                </p>
-                <p className="text-2xl font-bold" style={{ color: stat.color }}>
-                  {stat.value}
+                  Payment Orders
+                </h2>
+                <p
+                  className="text-xs mt-0.5"
+                  style={{ color: "oklch(48% 0.04 250)" }}
+                >
+                  Newest orders first — use the buttons to verify, block, or
+                  delete orders
                 </p>
               </div>
-            </div>
-          ))}
-        </div>
 
-        {/* Orders section */}
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{
-            background: "oklch(12% 0.025 250)",
-            border: "1px solid oklch(22% 0.04 250)",
-          }}
-        >
-          <div
-            className="px-6 py-4"
-            style={{ borderBottom: "1px solid oklch(18% 0.03 250)" }}
-          >
-            <h2
-              className="text-base font-bold"
-              style={{ color: "oklch(90% 0.04 250)" }}
-            >
-              Payment Orders
-            </h2>
-            <p
-              className="text-xs mt-0.5"
-              style={{ color: "oklch(48% 0.04 250)" }}
-            >
-              Newest orders first \u2014 use the buttons to verify, block, or
-              delete orders
-            </p>
-          </div>
-
-          {isLoading && orders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <RefreshCw
-                className="w-8 h-8 animate-spin"
-                style={{ color: "oklch(55% 0.08 195)" }}
-              />
-              <p
-                className="text-sm font-medium"
-                style={{ color: "oklch(50% 0.05 250)" }}
-              >
-                Loading orders...
-              </p>
-            </div>
-          ) : orders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center"
-                style={{ background: "oklch(18% 0.03 250)" }}
-              >
-                <Package
-                  className="w-8 h-8"
-                  style={{ color: "oklch(40% 0.04 250)" }}
-                />
-              </div>
-              <p
-                className="text-sm font-medium"
-                style={{ color: "oklch(45% 0.04 250)" }}
-              >
-                No orders yet
-              </p>
-              <p className="text-xs" style={{ color: "oklch(35% 0.03 250)" }}>
-                Orders will appear here after players complete payment
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow
-                    style={{ borderBottom: "1px solid oklch(18% 0.03 250)" }}
+              {isLoading && orders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <RefreshCw
+                    className="w-8 h-8 animate-spin"
+                    style={{ color: "oklch(55% 0.08 195)" }}
+                  />
+                  <p
+                    className="text-sm font-medium"
+                    style={{ color: "oklch(50% 0.05 250)" }}
                   >
-                    {[
-                      "#",
-                      "Player",
-                      "Items",
-                      "Amount",
-                      "Method",
-                      "Date",
-                      "Screenshot",
-                      "Status",
-                      "Actions",
-                    ].map((h) => (
-                      <TableHead
-                        key={h}
-                        className="text-xs font-semibold"
-                        style={{ color: "oklch(52% 0.05 250)" }}
-                      >
-                        {h}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orders.map((order, idx) => {
-                    const isActioning = actionLoading === order.id;
-                    return (
+                    Loading orders...
+                  </p>
+                </div>
+              ) : orders.length === 0 ? (
+                <div
+                  data-ocid="admin.orders.empty_state"
+                  className="flex flex-col items-center justify-center py-20 gap-4"
+                >
+                  <div
+                    className="w-16 h-16 rounded-full flex items-center justify-center"
+                    style={{ background: "oklch(18% 0.03 250)" }}
+                  >
+                    <Package
+                      className="w-8 h-8"
+                      style={{ color: "oklch(40% 0.04 250)" }}
+                    />
+                  </div>
+                  <p
+                    className="text-sm font-medium"
+                    style={{ color: "oklch(45% 0.04 250)" }}
+                  >
+                    No orders yet
+                  </p>
+                  <p
+                    className="text-xs"
+                    style={{ color: "oklch(35% 0.03 250)" }}
+                  >
+                    Orders will appear here after players complete payment
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow
-                        key={String(order.id)}
                         style={{
-                          borderBottom: "1px solid oklch(16% 0.025 250)",
-                          opacity: order.blocked ? 0.6 : 1,
+                          borderBottom: "1px solid oklch(18% 0.03 250)",
                         }}
                       >
-                        <TableCell
-                          className="text-xs font-mono"
-                          style={{ color: "oklch(45% 0.04 250)" }}
-                        >
-                          {idx + 1}
-                        </TableCell>
-                        <TableCell>
-                          <p
-                            className="text-sm font-bold"
-                            style={{ color: "oklch(88% 0.04 250)" }}
+                        {[
+                          "#",
+                          "Player",
+                          "Items",
+                          "Amount",
+                          "Method",
+                          "Date",
+                          "Screenshot",
+                          "Status",
+                          "Actions",
+                        ].map((h) => (
+                          <TableHead
+                            key={h}
+                            className="text-xs font-semibold"
+                            style={{ color: "oklch(52% 0.05 250)" }}
                           >
-                            {order.username}
-                          </p>
-                          <p
-                            className="text-xs mt-0.5"
-                            style={{ color: "oklch(50% 0.04 250)" }}
-                          >
-                            {order.email}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-0.5">
-                            {order.items.map((item, j) => (
-                              <div
-                                key={`${item.name}-${j}`}
-                                className="text-xs"
-                                style={{ color: "oklch(70% 0.05 250)" }}
-                              >
-                                {item.name}{" "}
-                                <span style={{ color: "oklch(50% 0.04 250)" }}>
-                                  \u00d7{String(item.quantity)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className="text-sm font-bold"
-                            style={{ color: "oklch(75% 0.18 145)" }}
-                          >
-                            \u20b9
-                            {Number(order.totalINR).toLocaleString("en-IN")}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className="text-xs px-2 py-0.5 rounded-full"
+                            {h}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orders.map((order, idx) => {
+                        const isActioning = actionLoading === order.id;
+                        return (
+                          <TableRow
+                            key={String(order.id)}
+                            data-ocid={`admin.orders.item.${idx + 1}`}
                             style={{
-                              background: "oklch(20% 0.04 195)",
-                              color: "oklch(72% 0.14 195)",
-                              border: "1px solid oklch(45% 0.12 195 / 0.3)",
+                              borderBottom: "1px solid oklch(16% 0.025 250)",
+                              opacity: order.blocked ? 0.6 : 1,
                             }}
                           >
-                            {order.paymentMethod}
-                          </span>
-                        </TableCell>
-                        <TableCell
-                          className="text-xs whitespace-nowrap"
-                          style={{ color: "oklch(50% 0.04 250)" }}
-                        >
-                          {formatDate(order.timestamp)}
-                        </TableCell>
-                        <TableCell>
-                          {order.hasScreenshot ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleViewScreenshot(order.id)}
-                              disabled={loadingScreenshot === order.id}
-                              className="h-7 text-xs px-2 flex items-center gap-1"
-                              style={{
-                                color: "oklch(72% 0.14 195)",
-                                border: "1px solid oklch(45% 0.12 195 / 0.3)",
-                              }}
+                            <TableCell
+                              className="text-xs font-mono"
+                              style={{ color: "oklch(45% 0.04 250)" }}
                             >
-                              {loadingScreenshot === order.id ? (
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Eye className="w-3 h-3" />
-                              )}
-                              View
-                            </Button>
-                          ) : (
-                            <span
-                              className="text-xs"
-                              style={{ color: "oklch(38% 0.04 250)" }}
-                            >
-                              \u2014
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {order.blocked ? (
-                            <span
-                              className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                              style={{
-                                background: "oklch(20% 0.04 30)",
-                                color: "oklch(72% 0.18 30)",
-                                border: "1px solid oklch(45% 0.15 30 / 0.35)",
-                              }}
-                            >
-                              \u26d4 Blocked
-                            </span>
-                          ) : order.verified ? (
-                            <span
-                              className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                              style={{
-                                background: "oklch(20% 0.04 145)",
-                                color: "oklch(72% 0.18 145)",
-                                border: "1px solid oklch(45% 0.15 145 / 0.35)",
-                              }}
-                            >
-                              \u2713 Verified
-                            </span>
-                          ) : (
-                            <span
-                              className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                              style={{
-                                background: "oklch(20% 0.04 60)",
-                                color: "oklch(72% 0.18 60)",
-                                border: "1px solid oklch(45% 0.15 60 / 0.35)",
-                              }}
-                            >
-                              Pending
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {!order.verified && !order.blocked && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleMarkVerified(order)}
-                                disabled={isActioning}
-                                className="h-7 text-xs px-2 flex items-center gap-1"
+                              {idx + 1}
+                            </TableCell>
+                            <TableCell>
+                              <p
+                                className="text-sm font-bold"
+                                style={{ color: "oklch(88% 0.04 250)" }}
+                              >
+                                {order.username}
+                              </p>
+                              <p
+                                className="text-xs mt-0.5"
+                                style={{ color: "oklch(50% 0.04 250)" }}
+                              >
+                                {order.email}
+                              </p>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-0.5">
+                                {order.items.map((item, j) => (
+                                  <div
+                                    key={`${item.name}-${j}`}
+                                    className="text-xs"
+                                    style={{ color: "oklch(70% 0.05 250)" }}
+                                  >
+                                    {item.name}{" "}
+                                    <span
+                                      style={{ color: "oklch(50% 0.04 250)" }}
+                                    >
+                                      ×{String(item.quantity)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className="text-sm font-bold"
+                                style={{ color: "oklch(75% 0.18 145)" }}
+                              >
+                                ₹
+                                {Number(order.totalINR).toLocaleString("en-IN")}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full"
                                 style={{
-                                  background: "oklch(22% 0.04 145)",
-                                  color: "oklch(72% 0.18 145)",
-                                  border: "1px solid oklch(45% 0.15 145 / 0.4)",
+                                  background: "oklch(20% 0.04 195)",
+                                  color: "oklch(72% 0.14 195)",
+                                  border: "1px solid oklch(45% 0.12 195 / 0.3)",
                                 }}
                               >
-                                {isActioning ? (
-                                  <RefreshCw className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <Shield className="w-3 h-3" />
-                                )}
-                                Verify
-                              </Button>
-                            )}
-                            {!order.blocked && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleBlockOrder(order)}
-                                disabled={isActioning}
-                                className="h-7 text-xs px-2 flex items-center gap-1"
-                                style={{
-                                  background: "oklch(22% 0.04 55)",
-                                  color: "oklch(75% 0.18 55)",
-                                  border: "1px solid oklch(50% 0.18 55 / 0.4)",
-                                }}
-                              >
-                                {isActioning ? (
-                                  <RefreshCw className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <Ban className="w-3 h-3" />
-                                )}
-                                Block
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              onClick={() => handleDeleteOrder(order)}
-                              disabled={isActioning}
-                              className="h-7 text-xs px-2 flex items-center gap-1"
-                              style={{
-                                background: "oklch(22% 0.04 25)",
-                                color: "oklch(70% 0.18 25)",
-                                border: "1px solid oklch(48% 0.18 25 / 0.4)",
-                              }}
+                                {order.paymentMethod}
+                              </span>
+                            </TableCell>
+                            <TableCell
+                              className="text-xs whitespace-nowrap"
+                              style={{ color: "oklch(50% 0.04 250)" }}
                             >
-                              {isActioning ? (
-                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              {formatDate(order.timestamp)}
+                            </TableCell>
+                            <TableCell>
+                              {order.hasScreenshot ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleViewScreenshot(order.id)}
+                                  disabled={loadingScreenshot === order.id}
+                                  className="h-7 text-xs px-2 flex items-center gap-1"
+                                  style={{
+                                    color: "oklch(72% 0.14 195)",
+                                    border:
+                                      "1px solid oklch(45% 0.12 195 / 0.3)",
+                                  }}
+                                >
+                                  {loadingScreenshot === order.id ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Eye className="w-3 h-3" />
+                                  )}
+                                  View
+                                </Button>
                               ) : (
-                                <Trash2 className="w-3 h-3" />
+                                <span
+                                  className="text-xs"
+                                  style={{ color: "oklch(38% 0.04 250)" }}
+                                >
+                                  —
+                                </span>
                               )}
-                              Delete
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                            </TableCell>
+                            <TableCell>
+                              {order.blocked ? (
+                                <span
+                                  className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                                  style={{
+                                    background: "oklch(20% 0.04 30)",
+                                    color: "oklch(72% 0.18 30)",
+                                    border:
+                                      "1px solid oklch(45% 0.15 30 / 0.35)",
+                                  }}
+                                >
+                                  ⛔ Blocked
+                                </span>
+                              ) : order.verified ? (
+                                <span
+                                  className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                                  style={{
+                                    background: "oklch(20% 0.04 145)",
+                                    color: "oklch(72% 0.18 145)",
+                                    border:
+                                      "1px solid oklch(45% 0.15 145 / 0.35)",
+                                  }}
+                                >
+                                  ✓ Verified
+                                </span>
+                              ) : (
+                                <span
+                                  className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                                  style={{
+                                    background: "oklch(20% 0.04 60)",
+                                    color: "oklch(72% 0.18 60)",
+                                    border:
+                                      "1px solid oklch(45% 0.15 60 / 0.35)",
+                                  }}
+                                >
+                                  Pending
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {!order.verified && !order.blocked && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleMarkVerified(order)}
+                                    disabled={isActioning}
+                                    data-ocid={`admin.orders.verify_button.${idx + 1}`}
+                                    className="h-7 text-xs px-2 flex items-center gap-1"
+                                    style={{
+                                      background: "oklch(22% 0.04 145)",
+                                      color: "oklch(72% 0.18 145)",
+                                      border:
+                                        "1px solid oklch(45% 0.15 145 / 0.4)",
+                                    }}
+                                  >
+                                    {isActioning ? (
+                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Shield className="w-3 h-3" />
+                                    )}
+                                    Verify
+                                  </Button>
+                                )}
+                                {!order.blocked && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleBlockOrder(order)}
+                                    disabled={isActioning}
+                                    data-ocid={`admin.orders.secondary_button.${idx + 1}`}
+                                    className="h-7 text-xs px-2 flex items-center gap-1"
+                                    style={{
+                                      background: "oklch(22% 0.04 55)",
+                                      color: "oklch(75% 0.18 55)",
+                                      border:
+                                        "1px solid oklch(50% 0.18 55 / 0.4)",
+                                    }}
+                                  >
+                                    {isActioning ? (
+                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Ban className="w-3 h-3" />
+                                    )}
+                                    Block
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleDeleteOrder(order)}
+                                  disabled={isActioning}
+                                  data-ocid={`admin.orders.delete_button.${idx + 1}`}
+                                  className="h-7 text-xs px-2 flex items-center gap-1"
+                                  style={{
+                                    background: "oklch(22% 0.04 25)",
+                                    color: "oklch(70% 0.18 25)",
+                                    border:
+                                      "1px solid oklch(48% 0.18 25 / 0.4)",
+                                  }}
+                                >
+                                  {isActioning ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3 h-3" />
+                                  )}
+                                  Delete
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      </main>
+
+          {/* REVENUE TAB */}
+          {activeTab === "revenue" && (
+            <div className="space-y-6">
+              <h2
+                className="text-lg font-bold"
+                style={{ color: "oklch(90% 0.04 250)" }}
+              >
+                Total Revenue
+              </h2>
+
+              {/* Big revenue number */}
+              <div
+                className="rounded-2xl p-8 text-center"
+                style={{
+                  background: "oklch(12% 0.025 250)",
+                  border: "1px solid oklch(22% 0.04 250)",
+                }}
+              >
+                <p
+                  className="text-xs font-semibold uppercase tracking-widest mb-2"
+                  style={{ color: "oklch(50% 0.05 250)" }}
+                >
+                  Total Revenue (non-blocked)
+                </p>
+                <p
+                  className="text-5xl font-bold mb-1"
+                  style={{ color: "oklch(75% 0.18 145)" }}
+                >
+                  ₹{totalRevenue.toLocaleString("en-IN")}
+                </p>
+                <p className="text-sm" style={{ color: "oklch(50% 0.05 250)" }}>
+                  from {orders.filter((o) => !o.blocked).length} active orders
+                </p>
+              </div>
+
+              {/* Breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div
+                  className="rounded-xl p-5"
+                  style={{
+                    background: "oklch(12% 0.025 250)",
+                    border: "1px solid oklch(22% 0.04 250)",
+                  }}
+                >
+                  <p
+                    className="text-xs font-semibold mb-2"
+                    style={{ color: "oklch(50% 0.05 250)" }}
+                  >
+                    Verified Revenue
+                  </p>
+                  <p
+                    className="text-2xl font-bold"
+                    style={{ color: "oklch(72% 0.18 145)" }}
+                  >
+                    ₹{verifiedRevenue.toLocaleString("en-IN")}
+                  </p>
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: "oklch(45% 0.04 250)" }}
+                  >
+                    {orders.filter((o) => o.verified && !o.blocked).length}{" "}
+                    verified orders
+                  </p>
+                </div>
+                <div
+                  className="rounded-xl p-5"
+                  style={{
+                    background: "oklch(12% 0.025 250)",
+                    border: "1px solid oklch(22% 0.04 250)",
+                  }}
+                >
+                  <p
+                    className="text-xs font-semibold mb-2"
+                    style={{ color: "oklch(50% 0.05 250)" }}
+                  >
+                    Pending Revenue
+                  </p>
+                  <p
+                    className="text-2xl font-bold"
+                    style={{ color: "oklch(72% 0.18 60)" }}
+                  >
+                    ₹{pendingRevenue.toLocaleString("en-IN")}
+                  </p>
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: "oklch(45% 0.04 250)" }}
+                  >
+                    {orders.filter((o) => !o.verified && !o.blocked).length}{" "}
+                    pending orders
+                  </p>
+                </div>
+                <div
+                  className="rounded-xl p-5"
+                  style={{
+                    background: "oklch(12% 0.025 250)",
+                    border: "1px solid oklch(22% 0.04 250)",
+                  }}
+                >
+                  <p
+                    className="text-xs font-semibold mb-2"
+                    style={{ color: "oklch(50% 0.05 250)" }}
+                  >
+                    Total Orders
+                  </p>
+                  <p
+                    className="text-2xl font-bold"
+                    style={{ color: "oklch(78% 0.18 195)" }}
+                  >
+                    {orders.length}
+                  </p>
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: "oklch(45% 0.04 250)" }}
+                  >
+                    {orders.filter((o) => o.blocked).length} blocked
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* USERNAMES TAB */}
+          {activeTab === "usernames" && (
+            <div className="space-y-4">
+              <h2
+                className="text-lg font-bold"
+                style={{ color: "oklch(90% 0.04 250)" }}
+              >
+                Usernames
+              </h2>
+              <p className="text-xs" style={{ color: "oklch(48% 0.04 250)" }}>
+                {uniquePlayerNames.length} unique player
+                {uniquePlayerNames.length !== 1 ? "s" : ""}
+              </p>
+
+              {uniquePlayerNames.length === 0 ? (
+                <div
+                  data-ocid="admin.usernames.empty_state"
+                  className="flex flex-col items-center justify-center py-20 gap-4"
+                >
+                  <Users
+                    className="w-12 h-12"
+                    style={{ color: "oklch(35% 0.04 250)" }}
+                  />
+                  <p style={{ color: "oklch(45% 0.04 250)" }}>No players yet</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {uniquePlayerNames.map((name, idx) => {
+                    const stats = playerStats[name];
+                    return (
+                      <div
+                        key={name}
+                        data-ocid={`admin.usernames.item.${idx + 1}`}
+                        className="rounded-xl p-4 flex items-center gap-3"
+                        style={{
+                          background: "oklch(12% 0.025 250)",
+                          border: "1px solid oklch(22% 0.04 250)",
+                        }}
+                      >
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold"
+                          style={{
+                            background: "oklch(18% 0.04 195)",
+                            color: "oklch(78% 0.18 195)",
+                            border: "1px solid oklch(45% 0.12 195 / 0.3)",
+                          }}
+                        >
+                          {name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p
+                            className="text-sm font-bold truncate"
+                            style={{ color: "oklch(88% 0.04 250)" }}
+                          >
+                            {name}
+                          </p>
+                          <p
+                            className="text-xs"
+                            style={{ color: "oklch(50% 0.04 250)" }}
+                          >
+                            {stats.count} order{stats.count !== 1 ? "s" : ""} ·{" "}
+                            {formatDate(stats.lastOrder)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
 
       {/* Fullscreen screenshot preview */}
       {previewImage && (
@@ -665,6 +927,7 @@ export default function AdminPanel() {
           >
             <button
               type="button"
+              data-ocid="admin.screenshot.close_button"
               onClick={() => setPreviewImage(null)}
               className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110"
               style={{
@@ -689,7 +952,7 @@ export default function AdminPanel() {
               className="text-center mt-3 text-xs"
               style={{ color: "oklch(45% 0.04 250)" }}
             >
-              Click outside or the \u00d7 to close
+              Click outside or the × to close
             </p>
           </div>
         </div>

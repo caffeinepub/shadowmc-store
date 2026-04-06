@@ -38,6 +38,20 @@ export default function CartSummaryBar() {
         pointerEvents: hasCartItems ? "auto" : "none",
       }}
     >
+      {/* Player TAB label */}
+      <div
+        className="text-center mb-1"
+        style={{
+          color: "oklch(55% 0.08 195)",
+          fontSize: "0.6rem",
+          fontWeight: 700,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+        }}
+      >
+        Player TAB
+      </div>
+
       <button
         type="button"
         onClick={openCart}
@@ -95,12 +109,26 @@ export default function CartSummaryBar() {
           style={{ background: "oklch(30% 0.04 250)" }}
         />
 
+        {/* Item count */}
+        <span
+          className="text-xs font-medium flex-shrink-0"
+          style={{ color: "oklch(55% 0.06 250)" }}
+        >
+          {cartItemCount} {cartItemCount === 1 ? "item" : "items"}
+        </span>
+
+        {/* Divider */}
+        <span
+          className="w-px h-4 flex-shrink-0"
+          style={{ background: "oklch(30% 0.04 250)" }}
+        />
+
         {/* Total */}
         <span
           className="text-base font-bold flex-shrink-0"
           style={{ color: "white" }}
         >
-          &#x20B9;{cartTotal.toLocaleString("en-IN")}
+          ₹{cartTotal.toLocaleString("en-IN")}
         </span>
 
         {/* View Cart */}

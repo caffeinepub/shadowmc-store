@@ -1,5 +1,4 @@
 import { useCart } from "../context/CartContext";
-import { useIsAdmin } from "../hooks/useQueries";
 import CurrencyToggle from "./CurrencyToggle";
 
 interface NavbarProps {
@@ -22,7 +21,6 @@ export default function Navbar({
   onNavigate,
   bannerVisible,
 }: NavbarProps) {
-  const { data: isAdmin } = useIsAdmin();
   const { items } = useCart();
 
   const cartItemCount = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -90,20 +88,6 @@ export default function Navbar({
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          {isAdmin === true && (
-            <button
-              type="button"
-              data-ocid="nav.admin.link"
-              onClick={() => {
-                window.location.href = "?page=admin";
-              }}
-              className="text-xs font-medium transition-colors hover:opacity-80"
-              style={{ color: "oklch(55% 0.1 250)" }}
-            >
-              Admin
-            </button>
-          )}
-
           {/* Cart icon badge in navbar */}
           {cartItemCount > 0 && (
             <div
