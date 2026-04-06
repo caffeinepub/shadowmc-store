@@ -271,7 +271,7 @@ export default function PurchaseHistory() {
                       </div>
                       <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
                         <p className="font-semibold text-foreground text-sm">
-                          ₹{order.totalINR.toLocaleString("en-IN")}
+                          Rs {order.totalINR.toLocaleString("en-IN")}
                         </p>
                         {getStatusBadge(order)}
                         <button
@@ -373,7 +373,7 @@ export default function PurchaseHistory() {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-foreground">
-                          ₹
+                          Rs
                           {Math.round(
                             (Number(purchase.priceCents) / 100) * INR_PER_USD,
                           ).toLocaleString("en-IN")}
@@ -492,7 +492,7 @@ export default function PurchaseHistory() {
             Welcome to Shadow MC Store
           </h3>
           <p className="text-muted-foreground mb-2">
-            Shadow MC is a free public server with{" "}
+            Shadow MC is a free public Minecraft server with{" "}
             <span style={{ color: "oklch(78% 0.22 70)" }}>Survival</span> and{" "}
             <span style={{ color: "oklch(70% 0.22 305)" }}>Lifesteal</span>{" "}
             modes.

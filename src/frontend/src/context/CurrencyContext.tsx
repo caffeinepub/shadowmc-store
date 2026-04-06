@@ -22,7 +22,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   // inrPrice is the canonical price in INR
   const formatPrice = (inrPrice: number) => {
     if (currency === "INR") {
-      return `₹${Math.round(inrPrice).toLocaleString("en-IN")}`;
+      return `Rs ${Math.round(inrPrice).toLocaleString("en-IN")}`;
     }
     const usd = inrPrice * INR_TO_USD;
     return `$${usd.toFixed(2)}`;

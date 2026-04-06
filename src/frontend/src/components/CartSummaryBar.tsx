@@ -1,17 +1,25 @@
 import { ShoppingCart } from "lucide-react";
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
 import { useUserInfo } from "../context/UserInfoContext";
 
 export default function CartSummaryBar() {
   const { items, openCart } = useCart();
   const { userInfo } = useUserInfo();
+  const { currency } = useCurrency();
 
   const cartItemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const cartTotal = items.reduce(
+  const cartTotalINR = items.reduce(
     (sum, item) => sum + (item.inrPrice ?? 0) * item.quantity,
     0,
   );
-  const hasCartItems = items.length > 0;
+  const cartTotalUSD = cartTotalINR / 92;
+
+  // Format total without rupee symbol — just number with currency label
+  const formattedTotal =
+    currency === "INR"
+      ? `Rs ${Math.round(cartTotalINR).toLocaleString("en-IN")}`
+      : `$${cartTotalUSD.toFixed(2)}`;
 
   // Resolve username: prefer context, then fall back to localStorage
   const storedUsername = (() => {
@@ -28,19 +36,22 @@ export default function CartSummaryBar() {
     return "";
   })();
 
+  // Show Player TAB as soon as username is registered (permanent)
+  // It's always visible once the user has entered their username
+  const hasUsername = !!storedUsername;
+
+  if (!hasUsername) return null;
+
   return (
     <div
-      className="fixed bottom-6 left-1/2 z-50"
+      className="fixed bottom-0 right-0 z-50"
       style={{
-        transform: `translateX(-50%) translateY(${hasCartItems ? "0" : "80px"})`,
-        transition: "opacity 0.35s ease, transform 0.35s ease",
-        opacity: hasCartItems ? 1 : 0,
-        pointerEvents: hasCartItems ? "auto" : "none",
+        padding: "0 20px 16px 0",
       }}
     >
       {/* Player TAB label */}
       <div
-        className="text-center mb-1"
+        className="text-right mb-1"
         style={{
           color: "oklch(55% 0.08 195)",
           fontSize: "0.6rem",
@@ -87,21 +98,12 @@ export default function CartSummaryBar() {
         </div>
 
         {/* Username */}
-        {storedUsername ? (
-          <span
-            className="text-sm font-medium max-w-[120px] truncate"
-            style={{ color: "oklch(65% 0.06 250)" }}
-          >
-            {storedUsername}
-          </span>
-        ) : (
-          <span
-            className="text-sm font-medium"
-            style={{ color: "oklch(55% 0.04 250)" }}
-          >
-            Guest
-          </span>
-        )}
+        <span
+          className="text-sm font-medium max-w-[120px] truncate"
+          style={{ color: "oklch(65% 0.06 250)" }}
+        >
+          {storedUsername}
+        </span>
 
         {/* Divider */}
         <span
@@ -128,7 +130,7 @@ export default function CartSummaryBar() {
           className="text-base font-bold flex-shrink-0"
           style={{ color: "white" }}
         >
-          ₹{cartTotal.toLocaleString("en-IN")}
+          {cartItemCount > 0 ? formattedTotal : "Empty cart"}
         </span>
 
         {/* View Cart */}

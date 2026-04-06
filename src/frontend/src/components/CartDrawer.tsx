@@ -36,7 +36,7 @@ export default function CartDrawer() {
 
   const displayTotalLabel =
     currency === "INR"
-      ? `₹${displayTotal.toLocaleString("en-IN")}`
+      ? `Rs ${displayTotal.toLocaleString("en-IN")}`
       : `$${displayTotal.toFixed(2)}`;
 
   const handleCheckout = () => {
@@ -93,11 +93,11 @@ export default function CartDrawer() {
                     item.inrPrice ?? Math.round(item.price * INR_PER_USD);
                   const lineTotal =
                     currency === "INR"
-                      ? `₹${(unitInr * item.quantity).toLocaleString("en-IN")}`
+                      ? `Rs ${(unitInr * item.quantity).toLocaleString("en-IN")}`
                       : `$${(item.price * item.quantity).toFixed(2)}`;
                   const unitLabel =
                     currency === "INR"
-                      ? `₹${unitInr.toLocaleString("en-IN")} each`
+                      ? `Rs ${unitInr.toLocaleString("en-IN")} each`
                       : `$${item.price.toFixed(2)} each`;
 
                   return (

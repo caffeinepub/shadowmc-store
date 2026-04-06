@@ -339,7 +339,7 @@ export default function AdminPanel() {
                 id: "revenue" as SidebarTab,
                 label: "Total Revenue",
                 icon: TrendingUp,
-                stat: `₹${totalRevenue.toLocaleString("en-IN")}`,
+                stat: `Rs ${totalRevenue.toLocaleString("en-IN")}`,
                 statColor: "oklch(75% 0.18 145)",
               },
               {
@@ -542,7 +542,7 @@ export default function AdminPanel() {
                                 className="text-sm font-bold"
                                 style={{ color: "oklch(75% 0.18 145)" }}
                               >
-                                ₹
+                                Rs
                                 {Number(order.totalINR).toLocaleString("en-IN")}
                               </span>
                             </TableCell>
@@ -739,7 +739,7 @@ export default function AdminPanel() {
                   className="text-5xl font-bold mb-1"
                   style={{ color: "oklch(75% 0.18 145)" }}
                 >
-                  ₹{totalRevenue.toLocaleString("en-IN")}
+                  Rs {totalRevenue.toLocaleString("en-IN")}
                 </p>
                 <p className="text-sm" style={{ color: "oklch(50% 0.05 250)" }}>
                   from {orders.filter((o) => !o.blocked).length} active orders
@@ -765,7 +765,7 @@ export default function AdminPanel() {
                     className="text-2xl font-bold"
                     style={{ color: "oklch(72% 0.18 145)" }}
                   >
-                    ₹{verifiedRevenue.toLocaleString("en-IN")}
+                    Rs {verifiedRevenue.toLocaleString("en-IN")}
                   </p>
                   <p
                     className="text-xs mt-1"
@@ -792,7 +792,7 @@ export default function AdminPanel() {
                     className="text-2xl font-bold"
                     style={{ color: "oklch(72% 0.18 60)" }}
                   >
-                    ₹{pendingRevenue.toLocaleString("en-IN")}
+                    Rs {pendingRevenue.toLocaleString("en-IN")}
                   </p>
                   <p
                     className="text-xs mt-1"
