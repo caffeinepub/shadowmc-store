@@ -1,4 +1,6 @@
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
+import { useUserInfo } from "../context/UserInfoContext";
 import CurrencyToggle from "./CurrencyToggle";
 
 interface NavbarProps {
@@ -21,9 +23,38 @@ export default function Navbar({
   onNavigate,
   bannerVisible,
 }: NavbarProps) {
-  const { items } = useCart();
+  const { items, openCart } = useCart();
+  const { userInfo } = useUserInfo();
+  const { currency } = useCurrency();
 
   const cartItemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const cartTotalINR = items.reduce(
+    (sum, item) => sum + (item.inrPrice ?? 0) * item.quantity,
+    0,
+  );
+  const cartTotalUSD = cartTotalINR / 92;
+
+  const formattedTotal =
+    currency === "INR"
+      ? `${Math.round(cartTotalINR).toLocaleString("en-IN")}`
+      : `$${cartTotalUSD.toFixed(2)}`;
+
+  // Resolve username from context or localStorage
+  const storedUsername = (() => {
+    if (userInfo.minecraftUsername) return userInfo.minecraftUsername;
+    try {
+      const raw = localStorage.getItem("shadowmc_user_info");
+      if (raw) {
+        const parsed = JSON.parse(raw) as { minecraftUsername?: string };
+        return parsed.minecraftUsername || "";
+      }
+    } catch {
+      /* ignore */
+    }
+    return "";
+  })();
+
+  const hasUsername = !!storedUsername;
 
   return (
     <header
@@ -35,6 +66,7 @@ export default function Navbar({
         borderColor: "oklch(22% 0.04 250)",
       }}
     >
+      {/* Main navbar row */}
       <div className="container mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <button
@@ -88,25 +120,6 @@ export default function Navbar({
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          {/* Cart icon badge in navbar */}
-          {cartItemCount > 0 && (
-            <div
-              className="relative"
-              aria-label={`${cartItemCount} items in cart`}
-            >
-              <span
-                className="flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
-                style={{
-                  background: "oklch(78% 0.18 195)",
-                  color: "oklch(10% 0.02 250)",
-                  fontSize: "0.6rem",
-                }}
-              >
-                {cartItemCount}
-              </span>
-            </div>
-          )}
-
           <CurrencyToggle />
           <a
             href="https://discord.gg/rcKTBgQU"
@@ -136,6 +149,109 @@ export default function Navbar({
           </a>
         </div>
       </div>
+
+      {/* Player TAB — compact second row, only shown when username is registered */}
+      {hasUsername && (
+        <div
+          className="border-t"
+          style={{
+            borderColor: "oklch(18% 0.03 250)",
+            background: "oklch(8% 0.02 250 / 0.7)",
+          }}
+        >
+          <div className="container mx-auto max-w-6xl px-4 flex justify-end">
+            <button
+              type="button"
+              data-ocid="nav.player_tab.button"
+              onClick={openCart}
+              className="flex items-center gap-2 py-1.5 cursor-pointer transition-opacity hover:opacity-80"
+              aria-label="Open cart"
+            >
+              {/* PLAYER TAB label */}
+              <span
+                style={{
+                  fontSize: "0.55rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "oklch(55% 0.1 195)",
+                }}
+              >
+                Player TAB
+              </span>
+
+              {/* Separator */}
+              <span
+                style={{
+                  width: "1px",
+                  height: "12px",
+                  background: "oklch(25% 0.04 250)",
+                  display: "inline-block",
+                  flexShrink: 0,
+                }}
+              />
+
+              {/* Username */}
+              <span
+                style={{
+                  fontSize: "0.688rem",
+                  color: "oklch(78% 0.18 195)",
+                  fontWeight: 500,
+                  maxWidth: "120px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {storedUsername}
+              </span>
+
+              {/* Separator */}
+              <span
+                style={{
+                  fontSize: "0.65rem",
+                  color: "oklch(35% 0.04 250)",
+                }}
+              >
+                |
+              </span>
+
+              {/* Item count */}
+              <span
+                style={{
+                  fontSize: "0.688rem",
+                  color: "oklch(60% 0.06 250)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {cartItemCount} {cartItemCount === 1 ? "item" : "items"}
+              </span>
+
+              {/* Separator */}
+              <span
+                style={{
+                  fontSize: "0.65rem",
+                  color: "oklch(35% 0.04 250)",
+                }}
+              >
+                |
+              </span>
+
+              {/* Total */}
+              <span
+                style={{
+                  fontSize: "0.688rem",
+                  color: "white",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {cartItemCount > 0 ? formattedTotal : "—"}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

@@ -1,28 +1,27 @@
 # ShadowMC Store
 
 ## Current State
-Fully functional Minecraft store with ranks, coins, cart, admin panel, entry popup, Player TAB, and purchase history. Multiple currency display issues and UI bugs remain.
+- Player TAB is a floating bar fixed at `bottom-0 right-0` (CartSummaryBar.tsx), displayed outside the navbar as a large button
+- Orders keep failing with "canister is stopped" error — canister 3m3vl-qaaaa-aaaab-qf4eq-cai stops between deploys
+- Navbar has logo, nav links, cart icon badge, currency toggle, and Discord button
 
 ## Requested Changes (Diff)
 
 ### Add
-- Player TAB now permanent after username registration (not just when cart has items)
+- Compact Player TAB widget embedded in the Navbar, below the main navbar row, right-aligned
+- Widget shows: player name (small font), item count (e.g. "1 item"), and total price separated by "|"
 
 ### Modify
-- Currency display: replace all ₹ symbols with `Rs` prefix (e.g. `Rs 349`), USD stays as `$2.66`
-- Welcome box text: "Shadow MC is a free public Minecraft server" (was missing "Minecraft")
-- Player TAB repositioned to bottom-right corner (fixed position), always shown after user registers
-- Player TAB shows "Empty cart" when no items vs total price when items exist
-- Admin panel revenue amounts use `Rs` prefix instead of `₹`
-- CSP eval fix stays in place (unsafe-eval already added in index.html)
-- Canister restart triggered by redeployment
+- Move Player TAB from CartSummaryBar.tsx floating bottom-right position INTO the Navbar, as a second row below the main navbar bar
+- Player TAB row: compact, single line, right-aligned, small text, always visible once username is set
+- Format: `PlayerName  |  1 item  |  349` — all small text, compact, clickable to open cart
+- Remove the old CartSummaryBar floating bottom-right widget (or hide it)
+- Restart/redeploy backend to fix canister-stopped orders error
 
 ### Remove
-- Rupee Unicode symbol (₹) from all UI components
+- CartSummaryBar as a separate floating bottom component (replace with navbar-embedded compact version)
 
 ## Implementation Plan
-1. Fix CurrencyContext.formatPrice to return `Rs X` instead of `₹X`
-2. Fix CartSummaryBar: always visible when username exists, positioned bottom-right, shows `Rs`/`$` total
-3. Fix PurchaseHistory welcome box text
-4. Fix all hardcoded ₹ symbols in PurchaseHistory, AdminPanel, CartDrawer
-5. Redeploy to restart stopped canister
+1. Edit Navbar.tsx to add a second compact row below the main navbar that shows Player TAB info
+2. Remove or hide CartSummaryBar.tsx (no longer needed as a floating element)
+3. Redeploy triggers canister restart which fixes the orders-not-showing issue
