@@ -1,18 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
-
-@font-face {
-  font-family: "Bricolage Grotesque";
-  src: url("/assets/fonts/BricolageGrotesque.woff2") format("woff2");
-  font-weight: 200 800;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Figtree";
-  src: url("/assets/fonts/Figtree.woff2") format("woff2");
-  font-weight: 300 900;
-  font-display: swap;
-}
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Figtree:wght@400;500;600;700&family=Bricolage+Grotesque:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;

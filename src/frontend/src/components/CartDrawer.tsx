@@ -11,35 +11,22 @@ import { useCart } from "../context/CartContext";
 import { useCurrency } from "../context/CurrencyContext";
 import PaymentModal from "./PaymentModal";
 
-const INR_PER_USD = 92;
-
 export default function CartDrawer() {
-  const {
-    items,
-    removeItem,
-    updateQuantity,
-    clearCart,
-    total,
-    isOpen,
-    setIsOpen,
-  } = useCart();
-  const { currency } = useCurrency();
+  const { items, removeItem, updateQuantity, clearCart, isOpen, setIsOpen } =
+    useCart();
+  const { formatPrice } = useCurrency();
   const [paymentOpen, setPaymentOpen] = useState(false);
 
-  const displayTotal =
-    currency === "INR"
-      ? items.reduce((sum, item) => {
-          const inr = item.inrPrice ?? Math.round(item.price * INR_PER_USD);
-          return sum + inr * item.quantity;
-        }, 0)
-      : total;
+  // Compute INR total from items (inrPrice is canonical)
+  const inrTotal = items.reduce((sum, item) => {
+    const inr = item.inrPrice ?? Math.round(item.price * 92);
+    return sum + inr * item.quantity;
+  }, 0);
 
-  const displayTotalLabel =
-    currency === "INR"
-      ? `Rs ${displayTotal.toLocaleString("en-IN")}`
-      : `$${displayTotal.toFixed(2)}`;
+  const displayTotalLabel = formatPrice(inrTotal);
 
   const handleCheckout = () => {
+    setIsOpen(false);
     setPaymentOpen(true);
   };
 
@@ -89,16 +76,9 @@ export default function CartDrawer() {
             ) : (
               <div className="space-y-3">
                 {items.map((item, index) => {
-                  const unitInr =
-                    item.inrPrice ?? Math.round(item.price * INR_PER_USD);
-                  const lineTotal =
-                    currency === "INR"
-                      ? `Rs ${(unitInr * item.quantity).toLocaleString("en-IN")}`
-                      : `$${(item.price * item.quantity).toFixed(2)}`;
-                  const unitLabel =
-                    currency === "INR"
-                      ? `Rs ${unitInr.toLocaleString("en-IN")} each`
-                      : `$${item.price.toFixed(2)} each`;
+                  const unitInr = item.inrPrice ?? Math.round(item.price * 92);
+                  const lineTotal = formatPrice(unitInr * item.quantity);
+                  const unitLabel = `${formatPrice(unitInr)} each`;
 
                   return (
                     <div
@@ -209,7 +189,7 @@ export default function CartDrawer() {
       <PaymentModal
         open={paymentOpen}
         onOpenChange={setPaymentOpen}
-        total={total}
+        total={inrTotal}
       />
     </>
   );

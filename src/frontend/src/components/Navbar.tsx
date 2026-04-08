@@ -25,19 +25,15 @@ export default function Navbar({
 }: NavbarProps) {
   const { items, openCart } = useCart();
   const { userInfo } = useUserInfo();
-  const { currency } = useCurrency();
+  const { formatPrice } = useCurrency();
 
   const cartItemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const cartTotalINR = items.reduce(
     (sum, item) => sum + (item.inrPrice ?? 0) * item.quantity,
     0,
   );
-  const cartTotalUSD = cartTotalINR / 92;
 
-  const formattedTotal =
-    currency === "INR"
-      ? `${Math.round(cartTotalINR).toLocaleString("en-IN")}`
-      : `$${cartTotalUSD.toFixed(2)}`;
+  const formattedTotal = formatPrice(cartTotalINR);
 
   // Resolve username from context or localStorage
   const storedUsername = (() => {

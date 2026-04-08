@@ -25,6 +25,11 @@ export type ProductType = {
     __kind__: "rank";
     rank: Rank;
 };
+export interface ManualOrderItem {
+    name: string;
+    quantity: bigint;
+    priceINR: bigint;
+}
 export interface http_header {
     value: string;
     name: string;
@@ -44,6 +49,30 @@ export interface ShoppingItem {
 export interface TransformationInput {
     context: Uint8Array;
     response: http_request_result;
+}
+export interface ManualOrder {
+    id: bigint;
+    verified: boolean;
+    paymentMethod: string;
+    username: string;
+    blocked: boolean;
+    email: string;
+    totalINR: bigint;
+    timestamp: Time;
+    items: Array<ManualOrderItem>;
+    screenshotBase64: string;
+}
+export interface ManualOrderLite {
+    id: bigint;
+    verified: boolean;
+    paymentMethod: string;
+    username: string;
+    blocked: boolean;
+    email: string;
+    totalINR: bigint;
+    timestamp: Time;
+    items: Array<ManualOrderItem>;
+    hasScreenshot: boolean;
 }
 export interface CoinBundle {
     id: bigint;
@@ -100,20 +129,27 @@ export interface backendInterface {
     addCoinBundle(coins: bigint, priceCents: bigint): Promise<void>;
     addRank(tier: string, priceCents: bigint, name: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    blockManualOrder(orderId: bigint): Promise<boolean>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
+    deleteManualOrder(orderId: bigint): Promise<boolean>;
     getCallerPurchases(): Promise<Array<Purchase>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getManualOrders(): Promise<Array<ManualOrder>>;
+    getManualOrdersLite(): Promise<Array<ManualOrderLite>>;
+    getOrderScreenshot(orderId: bigint): Promise<string>;
     getPurchases(): Promise<Array<Purchase>>;
     getStore(): Promise<StoreInfo>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
+    getVerifiedPurchaseIds(): Promise<Array<bigint>>;
     isCallerAdmin(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
+    markManualOrderVerified(orderId: bigint): Promise<boolean>;
     markPurchaseVerified(purchaseId: bigint): Promise<boolean>;
-    getVerifiedPurchaseIds(): Promise<Array<bigint>>;
     purchaseProduct(productId: bigint, productType: ProductType, priceCents: bigint, paymentSessionId: string): Promise<string>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
+    submitManualOrder(username: string, email: string, items: Array<ManualOrderItem>, totalINR: bigint, paymentMethod: string, screenshotBase64: string): Promise<bigint>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
 }

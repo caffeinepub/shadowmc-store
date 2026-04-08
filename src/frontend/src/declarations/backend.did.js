@@ -53,6 +53,35 @@ export const UserProfile = IDL.Record({
   'id' : IDL.Principal,
   'username' : IDL.Text,
 });
+export const ManualOrderItem = IDL.Record({
+  'name' : IDL.Text,
+  'quantity' : IDL.Nat,
+  'priceINR' : IDL.Nat,
+});
+export const ManualOrder = IDL.Record({
+  'id' : IDL.Nat,
+  'verified' : IDL.Bool,
+  'paymentMethod' : IDL.Text,
+  'username' : IDL.Text,
+  'blocked' : IDL.Bool,
+  'email' : IDL.Text,
+  'totalINR' : IDL.Nat,
+  'timestamp' : Time,
+  'items' : IDL.Vec(ManualOrderItem),
+  'screenshotBase64' : IDL.Text,
+});
+export const ManualOrderLite = IDL.Record({
+  'id' : IDL.Nat,
+  'verified' : IDL.Bool,
+  'paymentMethod' : IDL.Text,
+  'username' : IDL.Text,
+  'blocked' : IDL.Bool,
+  'email' : IDL.Text,
+  'totalINR' : IDL.Nat,
+  'timestamp' : Time,
+  'items' : IDL.Vec(ManualOrderItem),
+  'hasScreenshot' : IDL.Bool,
+});
 export const StoreInfo = IDL.Record({
   'coinBundles' : IDL.Vec(CoinBundle),
   'coinBundleMultiplier' : IDL.Nat,
@@ -90,39 +119,8 @@ export const TransformationOutput = IDL.Record({
   'headers' : IDL.Vec(http_header),
 });
 
-// Manual order types
-export const ManualOrderItem = IDL.Record({
-  'name' : IDL.Text,
-  'quantity' : IDL.Nat,
-  'priceINR' : IDL.Nat,
-});
-export const ManualOrder = IDL.Record({
-  'id' : IDL.Nat,
-  'timestamp' : Time,
-  'username' : IDL.Text,
-  'email' : IDL.Text,
-  'items' : IDL.Vec(ManualOrderItem),
-  'totalINR' : IDL.Nat,
-  'paymentMethod' : IDL.Text,
-  'screenshotBase64' : IDL.Text,
-  'verified' : IDL.Bool,
-  'blocked' : IDL.Bool,
-});
-export const ManualOrderLite = IDL.Record({
-  'id' : IDL.Nat,
-  'timestamp' : Time,
-  'username' : IDL.Text,
-  'email' : IDL.Text,
-  'items' : IDL.Vec(ManualOrderItem),
-  'totalINR' : IDL.Nat,
-  'paymentMethod' : IDL.Text,
-  'verified' : IDL.Bool,
-  'blocked' : IDL.Bool,
-  'hasScreenshot' : IDL.Bool,
-});
-
 export const idlService = IDL.Service({
-  '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  '_initializeAccessControl' : IDL.Func([], [], []),
   'addCoinBundle' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
   'addRank' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
@@ -147,9 +145,11 @@ export const idlService = IDL.Service({
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
+  'getVerifiedPurchaseIds' : IDL.Func([], [IDL.Vec(IDL.Nat)], ['query']),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
   'markManualOrderVerified' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+  'markPurchaseVerified' : IDL.Func([IDL.Nat], [IDL.Bool], []),
   'purchaseProduct' : IDL.Func(
       [IDL.Nat, ProductType, IDL.Nat, IDL.Text],
       [IDL.Text],
@@ -158,7 +158,14 @@ export const idlService = IDL.Service({
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
   'submitManualOrder' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Vec(ManualOrderItem), IDL.Nat, IDL.Text, IDL.Text],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Vec(ManualOrderItem),
+        IDL.Nat,
+        IDL.Text,
+        IDL.Text,
+      ],
       [IDL.Nat],
       [],
     ),
@@ -214,6 +221,35 @@ export const idlFactory = ({ IDL }) => {
     'id' : IDL.Principal,
     'username' : IDL.Text,
   });
+  const ManualOrderItem = IDL.Record({
+    'name' : IDL.Text,
+    'quantity' : IDL.Nat,
+    'priceINR' : IDL.Nat,
+  });
+  const ManualOrder = IDL.Record({
+    'id' : IDL.Nat,
+    'verified' : IDL.Bool,
+    'paymentMethod' : IDL.Text,
+    'username' : IDL.Text,
+    'blocked' : IDL.Bool,
+    'email' : IDL.Text,
+    'totalINR' : IDL.Nat,
+    'timestamp' : Time,
+    'items' : IDL.Vec(ManualOrderItem),
+    'screenshotBase64' : IDL.Text,
+  });
+  const ManualOrderLite = IDL.Record({
+    'id' : IDL.Nat,
+    'verified' : IDL.Bool,
+    'paymentMethod' : IDL.Text,
+    'username' : IDL.Text,
+    'blocked' : IDL.Bool,
+    'email' : IDL.Text,
+    'totalINR' : IDL.Nat,
+    'timestamp' : Time,
+    'items' : IDL.Vec(ManualOrderItem),
+    'hasScreenshot' : IDL.Bool,
+  });
   const StoreInfo = IDL.Record({
     'coinBundles' : IDL.Vec(CoinBundle),
     'coinBundleMultiplier' : IDL.Nat,
@@ -247,38 +283,9 @@ export const idlFactory = ({ IDL }) => {
     'body' : IDL.Vec(IDL.Nat8),
     'headers' : IDL.Vec(http_header),
   });
-  const ManualOrderItem = IDL.Record({
-    'name' : IDL.Text,
-    'quantity' : IDL.Nat,
-    'priceINR' : IDL.Nat,
-  });
-  const ManualOrder = IDL.Record({
-    'id' : IDL.Nat,
-    'timestamp' : Time,
-    'username' : IDL.Text,
-    'email' : IDL.Text,
-    'items' : IDL.Vec(ManualOrderItem),
-    'totalINR' : IDL.Nat,
-    'paymentMethod' : IDL.Text,
-    'screenshotBase64' : IDL.Text,
-    'verified' : IDL.Bool,
-    'blocked' : IDL.Bool,
-  });
-  const ManualOrderLite = IDL.Record({
-    'id' : IDL.Nat,
-    'timestamp' : Time,
-    'username' : IDL.Text,
-    'email' : IDL.Text,
-    'items' : IDL.Vec(ManualOrderItem),
-    'totalINR' : IDL.Nat,
-    'paymentMethod' : IDL.Text,
-    'verified' : IDL.Bool,
-    'blocked' : IDL.Bool,
-    'hasScreenshot' : IDL.Bool,
-  });
-
+  
   return IDL.Service({
-    '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    '_initializeAccessControl' : IDL.Func([], [], []),
     'addCoinBundle' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
     'addRank' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
@@ -303,9 +310,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
+    'getVerifiedPurchaseIds' : IDL.Func([], [IDL.Vec(IDL.Nat)], ['query']),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
     'markManualOrderVerified' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+    'markPurchaseVerified' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'purchaseProduct' : IDL.Func(
         [IDL.Nat, ProductType, IDL.Nat, IDL.Text],
         [IDL.Text],
@@ -314,7 +323,14 @@ export const idlFactory = ({ IDL }) => {
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
     'submitManualOrder' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Vec(ManualOrderItem), IDL.Nat, IDL.Text, IDL.Text],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Vec(ManualOrderItem),
+          IDL.Nat,
+          IDL.Text,
+          IDL.Text,
+        ],
         [IDL.Nat],
         [],
       ),

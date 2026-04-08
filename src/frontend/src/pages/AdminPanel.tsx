@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -12,20 +13,36 @@ import {
   Eye,
   LogOut,
   Package,
+  Plus,
   RefreshCw,
   Shield,
+  Tag,
   Trash2,
   TrendingUp,
   Users,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { ManualOrderLite } from "../declarations/backend.did.d.ts";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { createRawActorWithConfig } from "../rawActor";
 
-type Order = ManualOrderLite;
-type SidebarTab = "orders" | "revenue" | "usernames";
+// Define Order type locally since backend.did.d.ts may not export it
+type OrderItem = { name: string; quantity: bigint; priceINR: bigint };
+type Order = {
+  id: bigint;
+  username: string;
+  email: string;
+  items: OrderItem[];
+  totalINR: bigint;
+  paymentMethod: string;
+  timestamp: bigint;
+  verified: boolean;
+  blocked: boolean;
+  hasScreenshot: boolean;
+};
+
+type SidebarTab = "orders" | "revenue" | "usernames" | "coupons";
+type CouponEntry = { code: string; discountINR: number };
 
 function formatDate(ts: bigint): string {
   return new Date(Number(ts) / 1_000_000).toLocaleString("en-IN", {
@@ -49,6 +66,18 @@ export default function AdminPanel() {
   const [actionLoading, setActionLoading] = useState<bigint | null>(null);
   const [activeTab, setActiveTab] = useState<SidebarTab>("orders");
 
+  // Coupon state
+  const [coupons, setCoupons] = useState<CouponEntry[]>([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [newCouponCode, setNewCouponCode] = useState("");
+  const [newCouponDiscount, setNewCouponDiscount] = useState("");
+  const [couponMsg, setCouponMsg] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [couponAddLoading, setCouponAddLoading] = useState(false);
+  const [deletingCoupon, setDeletingCoupon] = useState<string | null>(null);
+
   const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
 
   const fetchOrders = useCallback(async () => {
@@ -67,11 +96,35 @@ export default function AdminPanel() {
     }
   }, []);
 
+  const fetchCoupons = useCallback(async () => {
+    setCouponsLoading(true);
+    try {
+      const rawActor = await createRawActorWithConfig();
+      const result = (await rawActor.getCoupons()) as [string, bigint][];
+      setCoupons(
+        result.map(([code, discount]) => ({
+          code,
+          discountINR: Number(discount),
+        })),
+      );
+    } catch (err) {
+      console.error("Failed to fetch coupons:", err);
+    } finally {
+      setCouponsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchOrders();
     }
   }, [isAuthenticated, fetchOrders]);
+
+  useEffect(() => {
+    if (isAuthenticated && activeTab === "coupons") {
+      fetchCoupons();
+    }
+  }, [isAuthenticated, activeTab, fetchCoupons]);
 
   const handleLogout = () => {
     clear();
@@ -141,6 +194,58 @@ export default function AdminPanel() {
     }
   };
 
+  const handleAddCoupon = async () => {
+    const code = newCouponCode.trim().toUpperCase();
+    const discount = Number.parseInt(newCouponDiscount, 10);
+    if (!code) {
+      setCouponMsg({ type: "error", text: "Please enter a coupon code" });
+      return;
+    }
+    if (!discount || discount <= 0) {
+      setCouponMsg({
+        type: "error",
+        text: "Please enter a valid discount amount",
+      });
+      return;
+    }
+    setCouponAddLoading(true);
+    setCouponMsg(null);
+    try {
+      const rawActor = await createRawActorWithConfig();
+      await rawActor.storeCoupon(code, BigInt(discount));
+      setNewCouponCode("");
+      setNewCouponDiscount("");
+      setCouponMsg({
+        type: "success",
+        text: `Coupon "${code}" added successfully!`,
+      });
+      await fetchCoupons();
+    } catch (err) {
+      console.error("Failed to add coupon:", err);
+      setCouponMsg({
+        type: "error",
+        text: "Failed to add coupon. Please try again.",
+      });
+    } finally {
+      setCouponAddLoading(false);
+    }
+  };
+
+  const handleDeleteCoupon = async (code: string) => {
+    if (!window.confirm(`Delete coupon "${code}"? This cannot be undone.`))
+      return;
+    setDeletingCoupon(code);
+    try {
+      const rawActor = await createRawActorWithConfig();
+      await rawActor.deleteCoupon(code);
+      setCoupons((prev) => prev.filter((c) => c.code !== code));
+    } catch (err) {
+      console.error("Failed to delete coupon:", err);
+    } finally {
+      setDeletingCoupon(null);
+    }
+  };
+
   const totalRevenue = orders
     .filter((o) => !o.blocked)
     .reduce((sum, o) => sum + Number(o.totalINR), 0);
@@ -152,7 +257,6 @@ export default function AdminPanel() {
     .reduce((sum, o) => sum + Number(o.totalINR), 0);
   const uniquePlayerNames = [...new Set(orders.map((o) => o.username))];
 
-  // Player stats for usernames tab
   const playerStats = orders.reduce(
     (acc, o) => {
       if (!acc[o.username])
@@ -213,7 +317,6 @@ export default function AdminPanel() {
               />
             </div>
           </div>
-
           <h1
             className="text-2xl font-bold text-center mb-1"
             style={{ color: "oklch(92% 0.04 250)" }}
@@ -226,7 +329,6 @@ export default function AdminPanel() {
           >
             Login with Internet Identity to access the admin panel
           </p>
-
           <Button
             className="w-full h-12 font-bold text-base"
             onClick={login}
@@ -247,7 +349,6 @@ export default function AdminPanel() {
               "Login with Internet Identity"
             )}
           </Button>
-
           {loginStatus === "loginError" && (
             <p
               className="text-xs text-center mt-3"
@@ -267,7 +368,7 @@ export default function AdminPanel() {
       className="min-h-screen flex flex-col"
       style={{ background: "oklch(8% 0.02 250)" }}
     >
-      {/* Header — full width */}
+      {/* Header */}
       <header
         className="sticky top-0 z-40 flex items-center justify-between px-6 py-4"
         style={{
@@ -325,7 +426,6 @@ export default function AdminPanel() {
             borderRight: "1px solid oklch(18% 0.03 250)",
           }}
         >
-          {/* Sidebar nav items */}
           {(
             [
               {
@@ -348,6 +448,14 @@ export default function AdminPanel() {
                 icon: Users,
                 stat: String(uniquePlayerNames.length),
                 statColor: "oklch(78% 0.18 60)",
+              },
+              {
+                id: "coupons" as SidebarTab,
+                label: "Coupons",
+                icon: Tag,
+                stat:
+                  coupons.length > 0 ? `${coupons.length} active` : "Manage",
+                statColor: "oklch(75% 0.18 320)",
               },
             ] as const
           ).map((item) => {
@@ -531,7 +639,7 @@ export default function AdminPanel() {
                                     <span
                                       style={{ color: "oklch(50% 0.04 250)" }}
                                     >
-                                      ×{String(item.quantity)}
+                                      &times;{String(item.quantity)}
                                     </span>
                                   </div>
                                 ))}
@@ -542,7 +650,7 @@ export default function AdminPanel() {
                                 className="text-sm font-bold"
                                 style={{ color: "oklch(75% 0.18 145)" }}
                               >
-                                Rs
+                                Rs{" "}
                                 {Number(order.totalINR).toLocaleString("en-IN")}
                               </span>
                             </TableCell>
@@ -605,7 +713,7 @@ export default function AdminPanel() {
                                       "1px solid oklch(45% 0.15 30 / 0.35)",
                                   }}
                                 >
-                                  ⛔ Blocked
+                                  Blocked
                                 </span>
                               ) : order.verified ? (
                                 <span
@@ -617,7 +725,7 @@ export default function AdminPanel() {
                                       "1px solid oklch(45% 0.15 145 / 0.35)",
                                   }}
                                 >
-                                  ✓ Verified
+                                  Verified
                                 </span>
                               ) : (
                                 <span
@@ -720,8 +828,6 @@ export default function AdminPanel() {
               >
                 Total Revenue
               </h2>
-
-              {/* Big revenue number */}
               <div
                 className="rounded-2xl p-8 text-center"
                 style={{
@@ -745,89 +851,55 @@ export default function AdminPanel() {
                   from {orders.filter((o) => !o.blocked).length} active orders
                 </p>
               </div>
-
-              {/* Breakdown */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div
-                  className="rounded-xl p-5"
-                  style={{
-                    background: "oklch(12% 0.025 250)",
-                    border: "1px solid oklch(22% 0.04 250)",
-                  }}
-                >
-                  <p
-                    className="text-xs font-semibold mb-2"
-                    style={{ color: "oklch(50% 0.05 250)" }}
+                {[
+                  {
+                    label: "Verified Revenue",
+                    value: `Rs ${verifiedRevenue.toLocaleString("en-IN")}`,
+                    color: "oklch(72% 0.18 145)",
+                    sub: `${orders.filter((o) => o.verified && !o.blocked).length} verified orders`,
+                  },
+                  {
+                    label: "Pending Revenue",
+                    value: `Rs ${pendingRevenue.toLocaleString("en-IN")}`,
+                    color: "oklch(72% 0.18 60)",
+                    sub: `${orders.filter((o) => !o.verified && !o.blocked).length} pending orders`,
+                  },
+                  {
+                    label: "Total Orders",
+                    value: String(orders.length),
+                    color: "oklch(78% 0.18 195)",
+                    sub: `${orders.filter((o) => o.blocked).length} blocked`,
+                  },
+                ].map((card) => (
+                  <div
+                    key={card.label}
+                    className="rounded-xl p-5"
+                    style={{
+                      background: "oklch(12% 0.025 250)",
+                      border: "1px solid oklch(22% 0.04 250)",
+                    }}
                   >
-                    Verified Revenue
-                  </p>
-                  <p
-                    className="text-2xl font-bold"
-                    style={{ color: "oklch(72% 0.18 145)" }}
-                  >
-                    Rs {verifiedRevenue.toLocaleString("en-IN")}
-                  </p>
-                  <p
-                    className="text-xs mt-1"
-                    style={{ color: "oklch(45% 0.04 250)" }}
-                  >
-                    {orders.filter((o) => o.verified && !o.blocked).length}{" "}
-                    verified orders
-                  </p>
-                </div>
-                <div
-                  className="rounded-xl p-5"
-                  style={{
-                    background: "oklch(12% 0.025 250)",
-                    border: "1px solid oklch(22% 0.04 250)",
-                  }}
-                >
-                  <p
-                    className="text-xs font-semibold mb-2"
-                    style={{ color: "oklch(50% 0.05 250)" }}
-                  >
-                    Pending Revenue
-                  </p>
-                  <p
-                    className="text-2xl font-bold"
-                    style={{ color: "oklch(72% 0.18 60)" }}
-                  >
-                    Rs {pendingRevenue.toLocaleString("en-IN")}
-                  </p>
-                  <p
-                    className="text-xs mt-1"
-                    style={{ color: "oklch(45% 0.04 250)" }}
-                  >
-                    {orders.filter((o) => !o.verified && !o.blocked).length}{" "}
-                    pending orders
-                  </p>
-                </div>
-                <div
-                  className="rounded-xl p-5"
-                  style={{
-                    background: "oklch(12% 0.025 250)",
-                    border: "1px solid oklch(22% 0.04 250)",
-                  }}
-                >
-                  <p
-                    className="text-xs font-semibold mb-2"
-                    style={{ color: "oklch(50% 0.05 250)" }}
-                  >
-                    Total Orders
-                  </p>
-                  <p
-                    className="text-2xl font-bold"
-                    style={{ color: "oklch(78% 0.18 195)" }}
-                  >
-                    {orders.length}
-                  </p>
-                  <p
-                    className="text-xs mt-1"
-                    style={{ color: "oklch(45% 0.04 250)" }}
-                  >
-                    {orders.filter((o) => o.blocked).length} blocked
-                  </p>
-                </div>
+                    <p
+                      className="text-xs font-semibold mb-2"
+                      style={{ color: "oklch(50% 0.05 250)" }}
+                    >
+                      {card.label}
+                    </p>
+                    <p
+                      className="text-2xl font-bold"
+                      style={{ color: card.color }}
+                    >
+                      {card.value}
+                    </p>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: "oklch(45% 0.04 250)" }}
+                    >
+                      {card.sub}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -845,7 +917,6 @@ export default function AdminPanel() {
                 {uniquePlayerNames.length} unique player
                 {uniquePlayerNames.length !== 1 ? "s" : ""}
               </p>
-
               {uniquePlayerNames.length === 0 ? (
                 <div
                   data-ocid="admin.usernames.empty_state"
@@ -903,6 +974,279 @@ export default function AdminPanel() {
               )}
             </div>
           )}
+
+          {/* COUPONS TAB */}
+          {activeTab === "coupons" && (
+            <div className="space-y-6 max-w-2xl">
+              <h2
+                className="text-lg font-bold"
+                style={{ color: "oklch(90% 0.04 250)" }}
+              >
+                Coupon Management
+              </h2>
+
+              {/* Add coupon */}
+              <div
+                className="rounded-xl p-6"
+                style={{
+                  background: "oklch(12% 0.025 250)",
+                  border: "1px solid oklch(22% 0.04 250)",
+                }}
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <Tag
+                    className="w-4 h-4"
+                    style={{ color: "oklch(75% 0.18 320)" }}
+                  />
+                  <h3
+                    className="text-sm font-bold"
+                    style={{ color: "oklch(88% 0.04 250)" }}
+                  >
+                    Add Coupon
+                  </h3>
+                </div>
+                <div className="flex gap-3 mb-3">
+                  <div className="flex-1 space-y-1">
+                    <label
+                      htmlFor="coupon-code-input"
+                      className="text-xs font-semibold"
+                      style={{ color: "oklch(60% 0.05 250)" }}
+                    >
+                      Coupon Code
+                    </label>
+                    <Input
+                      id="coupon-code-input"
+                      data-ocid="admin.coupons.code_input"
+                      placeholder="e.g. SUMMER20"
+                      value={newCouponCode}
+                      onChange={(e) => {
+                        setNewCouponCode(e.target.value.toUpperCase());
+                        if (couponMsg) setCouponMsg(null);
+                      }}
+                      className="font-mono tracking-widest text-sm"
+                      style={{
+                        background: "oklch(16% 0.03 250)",
+                        border: "1px solid oklch(28% 0.04 250)",
+                        color: "oklch(88% 0.04 250)",
+                      }}
+                    />
+                  </div>
+                  <div className="w-36 space-y-1">
+                    <label
+                      htmlFor="coupon-discount-input"
+                      className="text-xs font-semibold"
+                      style={{ color: "oklch(60% 0.05 250)" }}
+                    >
+                      Discount (Rs)
+                    </label>
+                    <Input
+                      id="coupon-discount-input"
+                      data-ocid="admin.coupons.discount_input"
+                      type="number"
+                      placeholder="e.g. 50"
+                      value={newCouponDiscount}
+                      onChange={(e) => {
+                        setNewCouponDiscount(e.target.value);
+                        if (couponMsg) setCouponMsg(null);
+                      }}
+                      min={1}
+                      className="text-sm"
+                      style={{
+                        background: "oklch(16% 0.03 250)",
+                        border: "1px solid oklch(28% 0.04 250)",
+                        color: "oklch(88% 0.04 250)",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {couponMsg && (
+                  <div
+                    className="px-3 py-2 rounded-lg mb-3 text-xs font-medium"
+                    style={{
+                      background:
+                        couponMsg.type === "success"
+                          ? "oklch(18% 0.04 145 / 0.4)"
+                          : "oklch(18% 0.04 25 / 0.4)",
+                      border:
+                        couponMsg.type === "success"
+                          ? "1px solid oklch(55% 0.15 145 / 0.3)"
+                          : "1px solid oklch(55% 0.18 25 / 0.3)",
+                      color:
+                        couponMsg.type === "success"
+                          ? "oklch(70% 0.14 145)"
+                          : "oklch(70% 0.18 25)",
+                    }}
+                  >
+                    {couponMsg.text}
+                  </div>
+                )}
+
+                <Button
+                  data-ocid="admin.coupons.add_button"
+                  onClick={handleAddCoupon}
+                  disabled={
+                    couponAddLoading ||
+                    !newCouponCode.trim() ||
+                    !newCouponDiscount
+                  }
+                  className="flex items-center gap-2 font-semibold"
+                  style={{
+                    background: "oklch(75% 0.18 320)",
+                    color: "oklch(10% 0.02 250)",
+                    boxShadow: "0 0 16px oklch(75% 0.18 320 / 0.3)",
+                    opacity: couponAddLoading ? 0.7 : 1,
+                  }}
+                >
+                  {couponAddLoading ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  Add Coupon
+                </Button>
+              </div>
+
+              {/* Active coupons list */}
+              <div
+                className="rounded-xl overflow-hidden"
+                style={{
+                  background: "oklch(12% 0.025 250)",
+                  border: "1px solid oklch(22% 0.04 250)",
+                }}
+              >
+                <div
+                  className="px-6 py-4 flex items-center justify-between"
+                  style={{ borderBottom: "1px solid oklch(18% 0.03 250)" }}
+                >
+                  <h3
+                    className="text-sm font-bold"
+                    style={{ color: "oklch(88% 0.04 250)" }}
+                  >
+                    Active Coupons
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={fetchCoupons}
+                    disabled={couponsLoading}
+                    className="flex items-center gap-1.5 text-xs"
+                    style={{ color: "oklch(62% 0.10 195)" }}
+                  >
+                    <RefreshCw
+                      className={`w-3 h-3 ${couponsLoading ? "animate-spin" : ""}`}
+                    />
+                    Refresh
+                  </Button>
+                </div>
+
+                {couponsLoading ? (
+                  <div className="flex items-center justify-center py-12 gap-3">
+                    <RefreshCw
+                      className="w-5 h-5 animate-spin"
+                      style={{ color: "oklch(55% 0.08 195)" }}
+                    />
+                    <p
+                      className="text-sm"
+                      style={{ color: "oklch(50% 0.05 250)" }}
+                    >
+                      Loading coupons...
+                    </p>
+                  </div>
+                ) : coupons.length === 0 ? (
+                  <div
+                    data-ocid="admin.coupons.empty_state"
+                    className="flex flex-col items-center justify-center py-12 gap-3"
+                  >
+                    <Tag
+                      className="w-10 h-10"
+                      style={{ color: "oklch(35% 0.04 250)" }}
+                    />
+                    <p
+                      className="text-sm font-medium"
+                      style={{ color: "oklch(45% 0.04 250)" }}
+                    >
+                      No coupons yet. Add one above.
+                    </p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow
+                        style={{
+                          borderBottom: "1px solid oklch(18% 0.03 250)",
+                        }}
+                      >
+                        {["Code", "Discount (Rs)", "Delete"].map((h) => (
+                          <TableHead
+                            key={h}
+                            className="text-xs font-semibold"
+                            style={{ color: "oklch(52% 0.05 250)" }}
+                          >
+                            {h}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {coupons.map((coupon) => (
+                        <TableRow
+                          key={coupon.code}
+                          data-ocid={`admin.coupons.item.${coupon.code}`}
+                          style={{
+                            borderBottom: "1px solid oklch(16% 0.025 250)",
+                          }}
+                        >
+                          <TableCell>
+                            <span
+                              className="font-mono text-sm font-bold tracking-widest px-2 py-1 rounded"
+                              style={{
+                                background: "oklch(18% 0.04 320 / 0.4)",
+                                color: "oklch(80% 0.16 320)",
+                                border: "1px solid oklch(50% 0.14 320 / 0.3)",
+                              }}
+                            >
+                              {coupon.code}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className="text-sm font-bold"
+                              style={{ color: "oklch(75% 0.18 145)" }}
+                            >
+                              Rs {coupon.discountINR.toLocaleString("en-IN")}{" "}
+                              off
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteCoupon(coupon.code)}
+                              disabled={deletingCoupon === coupon.code}
+                              data-ocid={`admin.coupons.delete.${coupon.code}`}
+                              className="h-7 text-xs px-2 flex items-center gap-1"
+                              style={{
+                                color: "oklch(70% 0.18 25)",
+                                border: "1px solid oklch(48% 0.18 25 / 0.4)",
+                              }}
+                            >
+                              {deletingCoupon === coupon.code ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
+                              Delete
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
@@ -952,7 +1296,7 @@ export default function AdminPanel() {
               className="text-center mt-3 text-xs"
               style={{ color: "oklch(45% 0.04 250)" }}
             >
-              Click outside or the × to close
+              Click outside or the &times; to close
             </p>
           </div>
         </div>

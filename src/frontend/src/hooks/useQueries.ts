@@ -1,13 +1,75 @@
 import type { Principal } from "@icp-sdk/core/principal";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type {
-  Purchase,
-  ShoppingItem,
-  StoreInfo,
-  UserProfile,
-} from "../backend";
-import type { backendInterface as ExtendedBackendInterface } from "../backend.d";
 import { useActor } from "./useActor";
+
+// Local type definitions (backend bindings are minimal stubs)
+export interface Purchase {
+  id: bigint;
+  productType: {
+    __kind__: "coinBundle" | "rank";
+    coinBundle: { coins: bigint };
+    rank: { tier: string };
+  };
+  purchaseTime: bigint;
+  priceCents: bigint;
+  username?: string;
+  email?: string;
+  totalINR?: bigint;
+  paymentMethod?: string;
+  timestamp?: bigint;
+  verified?: boolean;
+}
+
+export interface ShoppingItem {
+  productName: string;
+  currency: string;
+  quantity: bigint;
+  priceInCents: bigint;
+  productDescription: string;
+}
+
+export interface CoinBundle {
+  product: { id: bigint; name: string; priceCents: bigint };
+  coins: bigint;
+}
+
+export interface RankProduct {
+  product: { id: bigint; name: string; priceCents: bigint };
+  tier: string;
+}
+
+export interface StoreInfo {
+  name: string;
+  description: string;
+  coinBundles?: CoinBundle[];
+  ranks?: RankProduct[];
+}
+
+export interface UserProfile {
+  id: Principal;
+  username: string;
+}
+
+// Extended interface for methods not in generated bindings
+interface ExtendedActor {
+  getStore(): Promise<StoreInfo>;
+  getCallerPurchases(): Promise<Purchase[]>;
+  createCheckoutSession(
+    items: ShoppingItem[],
+    successUrl: string,
+    cancelUrl: string,
+  ): Promise<string>;
+  isStripeConfigured(): Promise<boolean>;
+  isCallerAdmin(): Promise<boolean>;
+  getPurchases(): Promise<Purchase[]>;
+  getVerifiedPurchaseIds(): Promise<bigint[]>;
+  markPurchaseVerified(id: bigint): Promise<void>;
+  getUserProfile(principal: Principal): Promise<UserProfile | null>;
+  saveCallerUserProfile(profile: {
+    id: Principal;
+    username: string;
+  }): Promise<void>;
+}
 
 export function useStoreInfo() {
   const { actor, isFetching } = useActor();
@@ -15,7 +77,7 @@ export function useStoreInfo() {
     queryKey: ["storeInfo"],
     queryFn: async () => {
       if (!actor) throw new Error("No actor");
-      return actor.getStore();
+      return (actor as unknown as ExtendedActor).getStore();
     },
     enabled: !!actor && !isFetching,
     staleTime: 60_000,
@@ -28,7 +90,7 @@ export function useCallerPurchases() {
     queryKey: ["callerPurchases"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.getCallerPurchases();
+      return (actor as unknown as ExtendedActor).getCallerPurchases();
     },
     enabled: !!actor && !isFetching,
   });
@@ -47,7 +109,11 @@ export function useCreateCheckoutSession() {
       cancelUrl: string;
     }) => {
       if (!actor) throw new Error("No actor");
-      return actor.createCheckoutSession(items, successUrl, cancelUrl);
+      return (actor as unknown as ExtendedActor).createCheckoutSession(
+        items,
+        successUrl,
+        cancelUrl,
+      );
     },
   });
 }
@@ -58,7 +124,7 @@ export function useIsStripeConfigured() {
     queryKey: ["isStripeConfigured"],
     queryFn: async () => {
       if (!actor) return false;
-      return actor.isStripeConfigured();
+      return (actor as unknown as ExtendedActor).isStripeConfigured();
     },
     enabled: !!actor && !isFetching,
   });
@@ -70,7 +136,7 @@ export function useIsAdmin() {
     queryKey: ["isAdmin"],
     queryFn: async () => {
       if (!actor) return false;
-      return actor.isCallerAdmin();
+      return (actor as unknown as ExtendedActor).isCallerAdmin();
     },
     enabled: !!actor && !isFetching,
     staleTime: 30_000,
@@ -83,7 +149,7 @@ export function useAllPurchases(enabled: boolean) {
     queryKey: ["allPurchases"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.getPurchases();
+      return (actor as unknown as ExtendedActor).getPurchases();
     },
     enabled: !!actor && !isFetching && enabled,
     staleTime: 15_000,
@@ -96,9 +162,7 @@ export function useVerifiedPurchaseIds(enabled: boolean) {
     queryKey: ["verifiedPurchaseIds"],
     queryFn: async () => {
       if (!actor) return [];
-      return (
-        actor as unknown as ExtendedBackendInterface
-      ).getVerifiedPurchaseIds();
+      return (actor as unknown as ExtendedActor).getVerifiedPurchaseIds();
     },
     enabled: !!actor && !isFetching && enabled,
     staleTime: 15_000,
@@ -111,9 +175,9 @@ export function useMarkPurchaseVerified() {
   return useMutation({
     mutationFn: async (purchaseId: bigint) => {
       if (!actor) throw new Error("No actor");
-      return (
-        actor as unknown as ExtendedBackendInterface
-      ).markPurchaseVerified(purchaseId);
+      return (actor as unknown as ExtendedActor).markPurchaseVerified(
+        purchaseId,
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["allPurchases"] });
@@ -131,7 +195,7 @@ export function useUserProfile(
     queryKey: ["userProfile", principal?.toString()],
     queryFn: async () => {
       if (!actor || !principal) return null;
-      return actor.getUserProfile(principal);
+      return (actor as unknown as ExtendedActor).getUserProfile(principal);
     },
     enabled: !!actor && !isFetching && enabled && !!principal,
     staleTime: 60_000,

@@ -13,6 +13,7 @@ import {
   Copy,
   CreditCard,
   Loader2,
+  Tag,
   Upload,
   X,
 } from "lucide-react";
@@ -102,7 +103,8 @@ const PAYMENT_METHODS: PaymentMethod[] = [
   },
 ];
 
-type Step = 1 | 2 | 3 | 4 | 5;
+// Steps: 1=Method, 2=Coupon, 3=Pay, 4=Proof, 5=Details, 6=Done
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 interface Props {
   open: boolean;
@@ -126,6 +128,14 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
     string | null
   >(null);
   const [showHistoryPopup, setShowHistoryPopup] = useState(false);
+
+  // Coupon state
+  const [couponCode, setCouponCode] = useState("");
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [couponError, setCouponError] = useState("");
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponLoading, setCouponLoading] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { clearCart, items } = useCart();
   const { mutateAsync: createSession, isPending: isStripeLoading } =
@@ -134,6 +144,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
   const { actor } = useActor();
 
   const inrTotal = Math.round(total * INR_PER_USD);
+  const finalTotal = Math.max(0, inrTotal - discountAmount);
 
   useEffect(() => {
     if (open) {
@@ -196,6 +207,44 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
     setStep(2);
   };
 
+  const handleApplyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+    setCouponLoading(true);
+    setCouponError("");
+    try {
+      const rawActor = await createRawActorWithConfig();
+      const discount = await rawActor.validateCoupon(code);
+      const discountNum = Number(discount);
+      if (discountNum > 0) {
+        setDiscountAmount(discountNum);
+        setCouponApplied(true);
+        setCouponError("");
+      } else {
+        setCouponError("No coupons are available for now");
+        setDiscountAmount(0);
+        setCouponApplied(false);
+      }
+    } catch (_err) {
+      setCouponError("No coupons are available for now");
+      setDiscountAmount(0);
+      setCouponApplied(false);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleSkipCoupon = () => {
+    setDiscountAmount(0);
+    setCouponApplied(false);
+    setCouponCode("");
+    setCouponError("");
+    setStep(3);
+  };
+
   const handleCopyUpi = async () => {
     await navigator.clipboard.writeText(UPI_ID);
     setCopied(true);
@@ -224,7 +273,13 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
     if (valid) {
       if (actor && identity && !identity.getPrincipal().isAnonymous()) {
         try {
-          actor
+          // biome-ignore lint/suspicious/noExplicitAny: method not in generated bindings
+          (
+            actor as unknown as Record<
+              string,
+              (...args: unknown[]) => Promise<unknown>
+            >
+          )
             .saveCallerUserProfile({
               id: identity.getPrincipal(),
               username: username.trim(),
@@ -252,7 +307,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
             quantity: i.quantity,
             priceINR: i.inrPrice ?? Math.round(i.price * 92),
           })),
-          totalINR: inrTotal,
+          totalINR: finalTotal,
           paymentMethod: selectedMethod?.name ?? "UPI",
           username: username.trim(),
           email: email.trim(),
@@ -265,7 +320,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
             username.trim(),
             email.trim(),
             backendItems,
-            BigInt(inrTotal),
+            BigInt(finalTotal),
             selectedMethod?.name ?? "UPI",
             screenshotBase64,
           );
@@ -290,7 +345,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
         submitOrder("");
       }
 
-      setStep(5);
+      setStep(6);
       setShowHistoryPopup(true);
     }
   };
@@ -304,6 +359,10 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
       setEmailError("");
       setScreenshot(null);
       setShowHistoryPopup(false);
+      setCouponCode("");
+      setDiscountAmount(0);
+      setCouponApplied(false);
+      setCouponError("");
       if (screenshotPreviewUrl) {
         URL.revokeObjectURL(screenshotPreviewUrl);
         setScreenshotPreviewUrl(null);
@@ -322,7 +381,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
     ? [
         `Open ${selectedMethod.name} app`,
         "Send to the UPI ID above",
-        `Enter exact amount \u20b9${inrTotal.toLocaleString("en-IN")}`,
+        `Enter exact amount Rs ${finalTotal.toLocaleString("en-IN")}`,
         "Take a screenshot for your records",
       ]
     : [];
@@ -410,7 +469,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                     style={{ color: "oklch(78% 0.18 195)" }}
                     className="font-bold"
                   >
-                    \u20b9{inrTotal.toLocaleString("en-IN")}
+                    Rs {inrTotal.toLocaleString("en-IN")}
                   </span>
                 </p>
               </DialogHeader>
@@ -489,8 +548,205 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
             </div>
           )}
 
-          {/* Step 2 — Payment instructions */}
-          {step === 2 && selectedMethod && (
+          {/* Step 2 — Coupon */}
+          {step === 2 && (
+            <div className="p-6">
+              <DialogHeader className="mb-5">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="flex items-center gap-1.5 text-xs mb-3 hover:opacity-80 transition-opacity w-fit"
+                  style={{ color: "oklch(55% 0.05 250)" }}
+                >
+                  <ArrowLeft className="w-3 h-3" /> Back
+                </button>
+                <DialogTitle
+                  className="text-lg font-bold"
+                  style={{ color: "oklch(90% 0.04 250)" }}
+                >
+                  Got a Coupon?
+                </DialogTitle>
+                <p
+                  className="text-sm mt-1"
+                  style={{ color: "oklch(55% 0.05 250)" }}
+                >
+                  Enter a coupon code for a discount, or skip to continue.
+                </p>
+              </DialogHeader>
+
+              <div
+                className="rounded-xl p-4 mb-5 text-center"
+                style={{
+                  background: "oklch(16% 0.025 250)",
+                  border: "1px solid oklch(22% 0.03 250)",
+                }}
+              >
+                <p
+                  className="text-xs mb-1"
+                  style={{ color: "oklch(55% 0.05 250)" }}
+                >
+                  Cart Total
+                </p>
+                <p
+                  className="text-3xl font-bold"
+                  style={{ color: "oklch(78% 0.18 195)" }}
+                >
+                  Rs {inrTotal.toLocaleString("en-IN")}
+                </p>
+                {couponApplied && discountAmount > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <div className="flex items-center justify-center gap-2">
+                      <span
+                        className="text-sm line-through"
+                        style={{ color: "oklch(45% 0.04 250)" }}
+                      >
+                        Rs {inrTotal.toLocaleString("en-IN")}
+                      </span>
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                        style={{
+                          background: "oklch(20% 0.06 145)",
+                          color: "oklch(72% 0.18 145)",
+                          border: "1px solid oklch(45% 0.15 145 / 0.4)",
+                        }}
+                      >
+                        -{discountAmount} off
+                      </span>
+                    </div>
+                    <p
+                      className="text-2xl font-bold"
+                      style={{ color: "oklch(72% 0.18 145)" }}
+                    >
+                      Rs {finalTotal.toLocaleString("en-IN")}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 mb-5">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Tag
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+                      style={{ color: "oklch(55% 0.08 195)" }}
+                    />
+                    <Input
+                      data-ocid="payment.coupon.input"
+                      placeholder="Enter coupon code"
+                      value={couponCode}
+                      onChange={(e) => {
+                        setCouponCode(e.target.value.toUpperCase());
+                        if (couponError) setCouponError("");
+                        if (couponApplied) {
+                          setCouponApplied(false);
+                          setDiscountAmount(0);
+                        }
+                      }}
+                      className="pl-9 text-sm font-mono tracking-widest"
+                      style={{
+                        background: "oklch(16% 0.03 250)",
+                        border: couponError
+                          ? "1px solid oklch(65% 0.2 25)"
+                          : couponApplied
+                            ? "1px solid oklch(55% 0.18 145 / 0.6)"
+                            : "1px solid oklch(28% 0.04 250)",
+                        color: "oklch(88% 0.04 250)",
+                      }}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && handleApplyCoupon()
+                      }
+                    />
+                  </div>
+                  <Button
+                    data-ocid="payment.coupon.apply_button"
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading || !couponCode.trim()}
+                    className="font-semibold px-4"
+                    style={{
+                      background: couponApplied
+                        ? "oklch(22% 0.04 145)"
+                        : "oklch(78% 0.18 195)",
+                      color: couponApplied
+                        ? "oklch(72% 0.18 145)"
+                        : "oklch(10% 0.02 250)",
+                      border: couponApplied
+                        ? "1px solid oklch(45% 0.15 145 / 0.4)"
+                        : "none",
+                    }}
+                  >
+                    {couponLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : couponApplied ? (
+                      <Check className="w-4 h-4" />
+                    ) : (
+                      "Apply"
+                    )}
+                  </Button>
+                </div>
+
+                {couponApplied && (
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                    style={{
+                      background: "oklch(18% 0.04 145 / 0.4)",
+                      border: "1px solid oklch(55% 0.15 145 / 0.3)",
+                    }}
+                  >
+                    <Check
+                      className="w-4 h-4 flex-shrink-0"
+                      style={{ color: "oklch(65% 0.18 145)" }}
+                    />
+                    <span
+                      className="text-sm font-semibold"
+                      style={{ color: "oklch(70% 0.14 145)" }}
+                    >
+                      Coupon applied! Rs {discountAmount} off
+                    </span>
+                  </div>
+                )}
+
+                {couponError && (
+                  <p
+                    data-ocid="payment.coupon.error_state"
+                    className="text-xs px-1"
+                    style={{ color: "oklch(65% 0.2 25)" }}
+                  >
+                    {couponError}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  data-ocid="payment.coupon.skip_button"
+                  variant="ghost"
+                  className="flex-1 font-medium text-sm"
+                  style={{
+                    border: "1px solid oklch(28% 0.04 250)",
+                    color: "oklch(58% 0.05 250)",
+                  }}
+                  onClick={handleSkipCoupon}
+                >
+                  Skip
+                </Button>
+                <Button
+                  data-ocid="payment.coupon.continue_button"
+                  className="flex-1 font-semibold gap-2"
+                  style={{
+                    background: "oklch(65% 0.18 145)",
+                    color: "oklch(10% 0.02 145)",
+                    boxShadow: "0 0 16px oklch(65% 0.18 145 / 0.35)",
+                  }}
+                  onClick={() => setStep(3)}
+                >
+                  <Check className="w-4 h-4" /> Continue
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3 — Payment instructions */}
+          {step === 3 && selectedMethod && (
             <div className="p-6">
               <DialogHeader className="mb-5">
                 <button
@@ -532,7 +788,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                         className="font-semibold"
                         style={{ color: "oklch(82% 0.08 250)" }}
                       >
-                        \u20b9
+                        Rs{" "}
                         {(
                           (item.inrPrice ??
                             Math.round(item.price * INR_PER_USD)) *
@@ -555,7 +811,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                   className="text-sm font-semibold mb-2"
                   style={{ color: "oklch(72% 0.10 195)" }}
                 >
-                  \ud83d\udcb3 Complete your payment to:{" "}
+                  Complete your payment to:{" "}
                   <span className="font-mono">{UPI_ID}</span>
                 </p>
                 <p
@@ -568,7 +824,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                   className="text-3xl font-bold"
                   style={{ color: "oklch(78% 0.18 195)" }}
                 >
-                  \u20b9{inrTotal.toLocaleString("en-IN")}
+                  Rs {finalTotal.toLocaleString("en-IN")}
                 </p>
               </div>
 
@@ -654,20 +910,20 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                   color: "oklch(10% 0.02 145)",
                   boxShadow: "0 0 16px oklch(65% 0.18 145 / 0.35)",
                 }}
-                onClick={() => setStep(3)}
+                onClick={() => setStep(4)}
               >
                 <Check className="w-4 h-4" /> I&apos;ve completed the payment
               </Button>
             </div>
           )}
 
-          {/* Step 3 — Upload Screenshot */}
-          {step === 3 && (
+          {/* Step 4 — Upload Screenshot */}
+          {step === 4 && (
             <div className="p-6">
               <DialogHeader className="mb-5">
                 <button
                   type="button"
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(3)}
                   className="flex items-center gap-1.5 text-xs mb-3 hover:opacity-80 transition-opacity w-fit"
                   style={{ color: "oklch(55% 0.05 250)" }}
                 >
@@ -803,20 +1059,20 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                     ? "0 0 16px oklch(78% 0.18 195 / 0.4)"
                     : "none",
                 }}
-                onClick={() => setStep(4)}
+                onClick={() => setStep(5)}
               >
                 Continue
               </Button>
             </div>
           )}
 
-          {/* Step 4 — Username + Email */}
-          {step === 4 && (
+          {/* Step 5 — Username + Email */}
+          {step === 5 && (
             <div className="p-6">
               <DialogHeader className="mb-5">
                 <button
                   type="button"
-                  onClick={() => setStep(3)}
+                  onClick={() => setStep(4)}
                   className="flex items-center gap-1.5 text-xs mb-3 hover:opacity-80 transition-opacity w-fit"
                   style={{ color: "oklch(55% 0.05 250)" }}
                 >
@@ -826,7 +1082,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                   className="text-xl font-bold"
                   style={{ color: "oklch(90% 0.04 250)" }}
                 >
-                  Almost done! \ud83c\udfae
+                  Almost done!
                 </DialogTitle>
                 <p
                   className="text-sm mt-1"
@@ -921,8 +1177,8 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                 }}
               >
                 <p className="text-xs" style={{ color: "oklch(62% 0.08 195)" }}>
-                  \ud83d\udca1 Rank / coins will be added to your account within
-                  a few minutes after we verify your payment.
+                  Rank / coins will be added to your account within a few
+                  minutes after we verify your payment.
                 </p>
               </div>
 
@@ -941,8 +1197,8 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
             </div>
           )}
 
-          {/* Step 5 — Success */}
-          {step === 5 && (
+          {/* Step 6 — Success */}
+          {step === 6 && (
             <div className="p-6 text-center">
               <div className="flex justify-center mb-4">
                 <div
@@ -1010,7 +1266,7 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                   background: "oklch(52% 0.22 285 / 0.12)",
                 }}
               >
-                \ud83c\udfae Join our Discord server for updates &amp; support
+                Join our Discord server for updates &amp; support
               </a>
             </div>
           )}
@@ -1059,7 +1315,10 @@ export default function PaymentModal({ open, onOpenChange, total }: Props) {
                   border: "1px solid oklch(78% 0.18 195 / 0.3)",
                 }}
               >
-                <span className="text-lg">\ud83d\udccb</span>
+                <CheckCircle2
+                  className="w-5 h-5"
+                  style={{ color: "oklch(78% 0.18 195)" }}
+                />
               </div>
               <div>
                 <p

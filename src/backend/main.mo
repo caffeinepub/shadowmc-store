@@ -4,11 +4,11 @@ import Map "mo:core/Map";
 import Iter "mo:core/Iter";
 import Runtime "mo:core/Runtime";
 import Time "mo:core/Time";
-import Stripe "stripe/stripe";
-import OutCall "http-outcalls/outcall";
-import AccessControl "authorization/access-control";
+import Stripe "mo:caffeineai-stripe/stripe";
+import OutCall "mo:caffeineai-http-outcalls/outcall";
+import AccessControl "mo:caffeineai-authorization/access-control";
 import Principal "mo:core/Principal";
-import MixinAuthorization "authorization/MixinAuthorization";
+import MixinAuthorization "mo:caffeineai-authorization/MixinAuthorization";
 
 actor {
   // Initialize the user system state

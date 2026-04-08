@@ -264,7 +264,7 @@ export default function CoinsSection() {
                       className="font-display text-2xl font-bold"
                       style={{ color: "white" }}
                     >
-                      {formatPriceWithINR(bundle.price, bundle.inrPrice)}
+                      {formatPriceWithINR(bundle.inrPrice)}
                     </span>
                   </div>
 

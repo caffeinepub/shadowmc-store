@@ -1,0 +1,161 @@
+type http_request_result = 
+ record {
+   body: blob;
+   headers: vec http_header;
+   status: nat;
+ };
+type http_header = 
+ record {
+   name: text;
+   value: text;
+ };
+type UserRole = 
+ variant {
+   admin;
+   guest;
+   user;
+ };
+type UserProfile = 
+ record {
+   id: principal;
+   username: text;
+ };
+type TransformationOutput = 
+ record {
+   body: blob;
+   headers: vec http_header;
+   status: nat;
+ };
+type TransformationInput = 
+ record {
+   context: blob;
+   response: http_request_result;
+ };
+type Time = int;
+type StripeSessionStatus = 
+ variant {
+   completed: record {
+                response: text;
+                userPrincipal: opt text;
+              };
+   failed: record {error: text;};
+ };
+type StripeConfiguration = 
+ record {
+   allowedCountries: vec text;
+   secretKey: text;
+ };
+type StoreInfo = 
+ record {
+   coinBundleMultiplier: nat;
+   coinBundles: vec CoinBundle;
+   currency: text;
+   rankDescription: text;
+   ranks: vec Rank;
+ };
+type ShoppingItem = 
+ record {
+   currency: text;
+   priceInCents: nat;
+   productDescription: text;
+   productName: text;
+   quantity: nat;
+ };
+type Rank = 
+ record {
+   id: nat;
+   product: Product;
+   tier: text;
+ };
+type Purchase = 
+ record {
+   caller: principal;
+   id: nat;
+   paymentSessionId: text;
+   priceCents: nat;
+   productId: nat;
+   productType: ProductType;
+   purchaseTime: Time;
+ };
+type ProductType = 
+ variant {
+   coinBundle: CoinBundle;
+   rank: Rank;
+ };
+type Product = 
+ record {
+   id: nat;
+   name: text;
+   priceCents: nat;
+ };
+type ManualOrderLite = 
+ record {
+   blocked: bool;
+   email: text;
+   hasScreenshot: bool;
+   id: nat;
+   items: vec ManualOrderItem;
+   paymentMethod: text;
+   timestamp: Time;
+   totalINR: nat;
+   username: text;
+   verified: bool;
+ };
+type ManualOrderItem = 
+ record {
+   name: text;
+   priceINR: nat;
+   quantity: nat;
+ };
+type ManualOrder = 
+ record {
+   blocked: bool;
+   email: text;
+   id: nat;
+   items: vec ManualOrderItem;
+   paymentMethod: text;
+   screenshotBase64: text;
+   timestamp: Time;
+   totalINR: nat;
+   username: text;
+   verified: bool;
+ };
+type CoinBundle = 
+ record {
+   coins: nat;
+   id: nat;
+   product: Product;
+ };
+service : {
+  _initializeAccessControl: () -> ();
+  addCoinBundle: (coins: nat, priceCents: nat) -> ();
+  addRank: (tier: text, priceCents: nat, name: text) -> ();
+  assignCallerUserRole: (user: principal, role: UserRole) -> ();
+  blockManualOrder: (orderId: nat) -> (bool);
+  createCheckoutSession: (items: vec ShoppingItem, successUrl: text,
+   cancelUrl: text) -> (text);
+  deleteManualOrder: (orderId: nat) -> (bool);
+  getCallerPurchases: () -> (vec Purchase) query;
+  getCallerUserProfile: () -> (opt UserProfile) query;
+  getCallerUserRole: () -> (UserRole) query;
+  getManualOrders: () -> (vec ManualOrder) query;
+  getManualOrdersLite: () -> (vec ManualOrderLite) query;
+  getOrderScreenshot: (orderId: nat) -> (text) query;
+  getPurchases: () -> (vec Purchase) query;
+  getStore: () -> (StoreInfo) query;
+  getStripeSessionStatus: (sessionId: text) -> (StripeSessionStatus);
+  getUserProfile: (user: principal) -> (opt UserProfile) query;
+  getVerifiedPurchaseIds: () -> (vec nat) query;
+  isCallerAdmin: () -> (bool) query;
+  isStripeConfigured: () -> (bool) query;
+  markManualOrderVerified: (orderId: nat) -> (bool);
+  markPurchaseVerified: (purchaseId: nat) -> (bool);
+  purchaseProduct: (productId: nat, productType: ProductType, priceCents:
+   nat, paymentSessionId: text) -> (text);
+  saveCallerUserProfile: (profile: UserProfile) -> ();
+  setStripeConfiguration: (config: StripeConfiguration) -> ();
+  submitManualOrder: (username: text, email: text, items:
+   vec ManualOrderItem, totalINR: nat, paymentMethod: text, screenshotBase64:
+   text) -> (nat);
+  transform: (input: TransformationInput) -> (TransformationOutput) query;
+}

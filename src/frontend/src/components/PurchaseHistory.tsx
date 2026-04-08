@@ -9,8 +9,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Purchase } from "../backend";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import type { Purchase } from "../hooks/useQueries";
 import { useCallerPurchases } from "../hooks/useQueries";
 import { createRawActorWithConfig } from "../rawActor";
 import {

@@ -1,0 +1,118 @@
+// Version: 1.0.0
+type CoinBundle__862861681 =
+  {coins : Nat; id : Nat; product : Product__853085059};
+type Data__791452850<K, V> =
+  {var count : Nat__490723111; kvs : [var ?(K, V)]};
+type Int__270357528 = Int__616954475;
+type Int__616954475 = Int;
+type Internal__8484328<K, V> =
+  {children : [var ?Node__46230540<K, V>]; data : Data__791452850<K, V>};
+type Leaf__809889148<K, V> = {data : Data__791452850<K, V>};
+type ManualOrderItem__902309702 =
+  {name : Text; priceINR : Nat; quantity : Nat};
+type ManualOrderV1__1024464708 =
+  {
+    email : Text;
+    id : Nat;
+    items : [ManualOrderItem__902309702];
+    paymentMethod : Text;
+    screenshotBase64 : Text;
+    timestamp : Time__900049286;
+    totalINR : Nat;
+    username : Text;
+    verified : Bool
+  };
+type ManualOrder__539117538 =
+  {
+    blocked : Bool;
+    email : Text;
+    id : Nat;
+    items : [ManualOrderItem__902309702];
+    paymentMethod : Text;
+    screenshotBase64 : Text;
+    timestamp : Time__900049286;
+    totalINR : Nat;
+    username : Text;
+    verified : Bool
+  };
+type Map__158565046<K, V> = Map__297112838<K, V>;
+type Map__297112838<K, V> =
+  {var root : Node__46230540<K, V>; var size : Nat__490723111};
+type Map__605269027<K, V> = Map__158565046<K, V>;
+type Nat__490723111 = Nat__920180692;
+type Nat__920180692 = Nat;
+type Node__46230540<K, V> =
+  {#internal : Internal__8484328<K, V>; #leaf : Leaf__809889148<K, V>};
+type ProductType__192155352 =
+  {#coinBundle : CoinBundle__862861681; #rank : Rank__34630604};
+type Product__853085059 = {id : Nat; name : Text; priceCents : Nat};
+type Purchase__439230863 =
+  {
+    caller : Principal;
+    id : Nat;
+    paymentSessionId : Text;
+    priceCents : Nat;
+    productId : Nat;
+    productType : ProductType__192155352;
+    purchaseTime : Time__900049286
+  };
+type Rank__34630604 = {id : Nat; product : Product__853085059; tier : Text};
+type StripeConfiguration__96897619 =
+  {allowedCountries : [Text]; secretKey : Text};
+type Time__796480547 = Int__270357528;
+type Time__900049286 = Time__796480547;
+type UserProfile__491224006 = {id : Principal; username : Text};
+type UserRole__1054455867 = {#admin; #guest; #user};
+actor {
+  stable accessControlState :
+    {
+      var adminAssigned : Bool;
+      userRoles : Map__605269027<Principal, UserRole__1054455867>
+    };
+  stable allCoinBundles :
+    {
+      var root : Node__46230540<Nat, CoinBundle__862861681>;
+      var size : Nat__490723111
+    };
+  stable allRanks :
+    {
+      var root : Node__46230540<Nat, Rank__34630604>;
+      var size : Nat__490723111
+    };
+  stable var coinBundleIdCounter : Nat;
+  stable var configuration : ?StripeConfiguration__96897619;
+  stable var manualOrderIdCounter : Nat;
+  stable manualOrders :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?ManualOrderV1__1024464708]];
+      var elementIndex : Nat__490723111
+    };
+  stable var manualOrdersMigrated : Bool;
+  stable manualOrdersV2 :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?ManualOrder__539117538]];
+      var elementIndex : Nat__490723111
+    };
+  stable var purchaseIdCounter : Nat;
+  stable purchases :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?Purchase__439230863]];
+      var elementIndex : Nat__490723111
+    };
+  stable var rankIdCounter : Nat;
+  stable var storeConfig :
+    {currency : Text; rankBasePrice : Nat; rankDescription : Text};
+  stable userProfiles :
+    {
+      var root : Node__46230540<Principal, UserProfile__491224006>;
+      var size : Nat__490723111
+    };
+  stable verifiedPurchaseIds :
+    {
+      var root : Node__46230540<Nat, Time__900049286>;
+      var size : Nat__490723111
+    }
+};

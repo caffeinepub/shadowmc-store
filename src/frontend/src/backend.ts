@@ -107,6 +107,11 @@ export type ProductType = {
     __kind__: "rank";
     rank: Rank;
 };
+export interface ManualOrderItem {
+    name: string;
+    quantity: bigint;
+    priceINR: bigint;
+}
 export interface http_header {
     value: string;
     name: string;
@@ -126,6 +131,30 @@ export interface ShoppingItem {
 export interface TransformationInput {
     context: Uint8Array;
     response: http_request_result;
+}
+export interface ManualOrder {
+    id: bigint;
+    verified: boolean;
+    paymentMethod: string;
+    username: string;
+    blocked: boolean;
+    email: string;
+    totalINR: bigint;
+    timestamp: Time;
+    items: Array<ManualOrderItem>;
+    screenshotBase64: string;
+}
+export interface ManualOrderLite {
+    id: bigint;
+    verified: boolean;
+    paymentMethod: string;
+    username: string;
+    blocked: boolean;
+    email: string;
+    totalINR: bigint;
+    timestamp: Time;
+    items: Array<ManualOrderItem>;
+    hasScreenshot: boolean;
 }
 export interface CoinBundle {
     id: bigint;
@@ -179,39 +208,48 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
-    _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
+    _initializeAccessControl(): Promise<void>;
     addCoinBundle(coins: bigint, priceCents: bigint): Promise<void>;
     addRank(tier: string, priceCents: bigint, name: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    blockManualOrder(orderId: bigint): Promise<boolean>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
+    deleteManualOrder(orderId: bigint): Promise<boolean>;
     getCallerPurchases(): Promise<Array<Purchase>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getManualOrders(): Promise<Array<ManualOrder>>;
+    getManualOrdersLite(): Promise<Array<ManualOrderLite>>;
+    getOrderScreenshot(orderId: bigint): Promise<string>;
     getPurchases(): Promise<Array<Purchase>>;
     getStore(): Promise<StoreInfo>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
+    getVerifiedPurchaseIds(): Promise<Array<bigint>>;
     isCallerAdmin(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
+    markManualOrderVerified(orderId: bigint): Promise<boolean>;
+    markPurchaseVerified(purchaseId: bigint): Promise<boolean>;
     purchaseProduct(productId: bigint, productType: ProductType, priceCents: bigint, paymentSessionId: string): Promise<string>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
+    submitManualOrder(username: string, email: string, items: Array<ManualOrderItem>, totalINR: bigint, paymentMethod: string, screenshotBase64: string): Promise<bigint>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
 }
 import type { CoinBundle as _CoinBundle, ProductType as _ProductType, Purchase as _Purchase, Rank as _Rank, StripeSessionStatus as _StripeSessionStatus, Time as _Time, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
-    async _initializeAccessControlWithSecret(arg0: string): Promise<void> {
+    async _initializeAccessControl(): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor._initializeAccessControlWithSecret(arg0);
+                const result = await this.actor._initializeAccessControl();
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor._initializeAccessControlWithSecret(arg0);
+            const result = await this.actor._initializeAccessControl();
             return result;
         }
     }
@@ -257,6 +295,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async blockManualOrder(arg0: bigint): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.blockManualOrder(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.blockManualOrder(arg0);
+            return result;
+        }
+    }
     async createCheckoutSession(arg0: Array<ShoppingItem>, arg1: string, arg2: string): Promise<string> {
         if (this.processError) {
             try {
@@ -268,6 +320,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.createCheckoutSession(arg0, arg1, arg2);
+            return result;
+        }
+    }
+    async deleteManualOrder(arg0: bigint): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteManualOrder(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteManualOrder(arg0);
             return result;
         }
     }
@@ -311,6 +377,48 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getCallerUserRole();
             return from_candid_UserRole_n9(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getManualOrders(): Promise<Array<ManualOrder>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getManualOrders();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getManualOrders();
+            return result;
+        }
+    }
+    async getManualOrdersLite(): Promise<Array<ManualOrderLite>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getManualOrdersLite();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getManualOrdersLite();
+            return result;
+        }
+    }
+    async getOrderScreenshot(arg0: bigint): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getOrderScreenshot(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getOrderScreenshot(arg0);
+            return result;
         }
     }
     async getPurchases(): Promise<Array<Purchase>> {
@@ -369,6 +477,20 @@ export class Backend implements backendInterface {
             return from_candid_opt_n8(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getVerifiedPurchaseIds(): Promise<Array<bigint>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getVerifiedPurchaseIds();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getVerifiedPurchaseIds();
+            return result;
+        }
+    }
     async isCallerAdmin(): Promise<boolean> {
         if (this.processError) {
             try {
@@ -394,6 +516,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.isStripeConfigured();
+            return result;
+        }
+    }
+    async markManualOrderVerified(arg0: bigint): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.markManualOrderVerified(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.markManualOrderVerified(arg0);
+            return result;
+        }
+    }
+    async markPurchaseVerified(arg0: bigint): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.markPurchaseVerified(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.markPurchaseVerified(arg0);
             return result;
         }
     }
@@ -436,6 +586,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.setStripeConfiguration(arg0);
+            return result;
+        }
+    }
+    async submitManualOrder(arg0: string, arg1: string, arg2: Array<ManualOrderItem>, arg3: bigint, arg4: string, arg5: string): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.submitManualOrder(arg0, arg1, arg2, arg3, arg4, arg5);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.submitManualOrder(arg0, arg1, arg2, arg3, arg4, arg5);
             return result;
         }
     }

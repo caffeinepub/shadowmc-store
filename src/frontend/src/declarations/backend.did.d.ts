@@ -15,33 +15,33 @@ export interface CoinBundle {
   'coins' : bigint,
   'product' : Product,
 }
+export interface ManualOrder {
+  'id' : bigint,
+  'verified' : boolean,
+  'paymentMethod' : string,
+  'username' : string,
+  'blocked' : boolean,
+  'email' : string,
+  'totalINR' : bigint,
+  'timestamp' : Time,
+  'items' : Array<ManualOrderItem>,
+  'screenshotBase64' : string,
+}
 export interface ManualOrderItem {
   'name' : string,
   'quantity' : bigint,
   'priceINR' : bigint,
 }
-export interface ManualOrder {
-  'id' : bigint,
-  'timestamp' : Time,
-  'username' : string,
-  'email' : string,
-  'items' : Array<ManualOrderItem>,
-  'totalINR' : bigint,
-  'paymentMethod' : string,
-  'screenshotBase64' : string,
-  'verified' : boolean,
-  'blocked' : boolean,
-}
 export interface ManualOrderLite {
   'id' : bigint,
-  'timestamp' : Time,
-  'username' : string,
-  'email' : string,
-  'items' : Array<ManualOrderItem>,
-  'totalINR' : bigint,
-  'paymentMethod' : string,
   'verified' : boolean,
+  'paymentMethod' : string,
+  'username' : string,
   'blocked' : boolean,
+  'email' : string,
+  'totalINR' : bigint,
+  'timestamp' : Time,
+  'items' : Array<ManualOrderItem>,
   'hasScreenshot' : boolean,
 }
 export interface Product {
@@ -104,7 +104,7 @@ export interface http_request_result {
   'headers' : Array<http_header>,
 }
 export interface _SERVICE {
-  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  '_initializeAccessControl' : ActorMethod<[], undefined>,
   'addCoinBundle' : ActorMethod<[bigint, bigint], undefined>,
   'addRank' : ActorMethod<[string, bigint, string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
@@ -124,9 +124,11 @@ export interface _SERVICE {
   'getStore' : ActorMethod<[], StoreInfo>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'getVerifiedPurchaseIds' : ActorMethod<[], Array<bigint>>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isStripeConfigured' : ActorMethod<[], boolean>,
   'markManualOrderVerified' : ActorMethod<[bigint], boolean>,
+  'markPurchaseVerified' : ActorMethod<[bigint], boolean>,
   'purchaseProduct' : ActorMethod<
     [bigint, ProductType, bigint, string],
     string
